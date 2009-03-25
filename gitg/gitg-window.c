@@ -34,6 +34,7 @@
 #include "gitg-runner.h"
 #include "gitg-window.h"
 #include "gitg-revision-view.h"
+#include "gitg-revision-changes-view.h"
 #include "gitg-revision-tree-view.h"
 #include "gitg-cell-renderer-path.h"
 #include "gitg-commit-view.h"
@@ -53,6 +54,7 @@ struct _GitgWindowPrivate
 	GtkTreeView *tree_view;
 	GtkStatusbar *statusbar;
 	GitgRevisionView *revision_view;
+	GitgRevisionChangesView *revision_changes_view;
 	GitgRevisionTreeView *revision_tree_view;
 	GitgCommitView *commit_view;
 	GtkWidget *search_popup;
@@ -107,6 +109,7 @@ on_selection_changed(GtkTreeSelection *selection, GitgWindow *window)
 		gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, 0, &revision, -1);
 	
 	gitg_revision_view_update(window->priv->revision_view, window->priv->repository, revision);
+	gitg_revision_changes_view_update(window->priv->revision_changes_view, window->priv->repository, revision);
 	gitg_revision_tree_view_update(window->priv->revision_tree_view, window->priv->repository, revision);
 }
 
@@ -370,6 +373,7 @@ gitg_window_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	window->priv->tree_view = GTK_TREE_VIEW(gtk_builder_get_object(builder, "tree_view_rv"));
 	window->priv->statusbar = GTK_STATUSBAR(gtk_builder_get_object(builder, "statusbar"));
 	window->priv->revision_view = GITG_REVISION_VIEW(gtk_builder_get_object(builder, "revision_view"));
+	window->priv->revision_changes_view = GITG_REVISION_CHANGES_VIEW(gtk_builder_get_object(builder, "revision_changes_view"));
 	window->priv->revision_tree_view = GITG_REVISION_TREE_VIEW(gtk_builder_get_object(builder, "revision_tree_view"));
 	window->priv->commit_view = GITG_COMMIT_VIEW(gtk_builder_get_object(builder, "hpaned_commit"));
 
@@ -728,6 +732,7 @@ load_repository(GitgWindow *window, gchar const *path, gint argc, gchar const **
 
 		gitg_commit_view_set_repository(window->priv->commit_view, window->priv->repository);
 		gitg_revision_view_set_repository(window->priv->revision_view, window->priv->repository);
+		gitg_revision_changes_view_set_repository(window->priv->revision_changes_view, window->priv->repository);
 		
 		gchar *basename = g_path_get_basename(gitg_repository_get_path(window->priv->repository));
 		gchar *title = g_strdup_printf("%s - %s", _("gitg"), basename);
@@ -744,6 +749,7 @@ load_repository(GitgWindow *window, gchar const *path, gint argc, gchar const **
 		clear_branches_combo(window, FALSE);
 		gitg_commit_view_set_repository(window->priv->commit_view, window->priv->repository);
 		gitg_revision_view_set_repository(window->priv->revision_view, window->priv->repository);
+		gitg_revision_changes_view_set_repository(window->priv->revision_changes_view, window->priv->repository);
 
 		if (path || argc > 1)
 			handle_no_gitdir(window);
