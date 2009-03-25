@@ -61,6 +61,7 @@ struct _GitgRevisionViewPrivate
 	GtkLabel *date;
 	GtkLabel *subject;
 	GtkTable *parents;
+	GtkTextView *log;
 	
 	GitgRepository *repository;
 	GitgRevision *revision;
@@ -264,6 +265,7 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	rvv->priv->date = GTK_LABEL(gtk_builder_get_object(builder, "label_date"));
 	rvv->priv->subject = GTK_LABEL(gtk_builder_get_object(builder, "label_subject"));
 	rvv->priv->parents = GTK_TABLE(gtk_builder_get_object(builder, "table_parents"));
+	rvv->priv->log = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_log"));
 	
 	gchar const *lbls[] = {
 		"label_subject_lbl",
@@ -530,8 +532,11 @@ void
 gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, GitgRevision *revision)
 {
 	GtkClipboard *cb;
+	GtkTextBuffer *tb;
 
 	g_return_if_fail(GITG_IS_REVISION_VIEW(self));
+
+	tb = gtk_text_view_get_buffer(self->priv->log);
 
 	// Update labels
 	if (revision)
@@ -539,6 +544,7 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 		gtk_label_set_text(self->priv->author, gitg_revision_get_author(revision));
 
 		gchar *s = g_markup_escape_text(gitg_revision_get_subject(revision), -1);
+		gtk_text_buffer_set_text(tb, s, -1);
 		gchar *subject = g_strconcat("<b>", s, "</b>", NULL);
 		g_free(s);
 
@@ -559,6 +565,7 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 	{
 		gtk_label_set_text(self->priv->author, "");
 		gtk_label_set_text(self->priv->subject, "");
+		gtk_text_buffer_set_text(tb, "", -1);
 		gtk_label_set_text(self->priv->date, "");
 		gtk_label_set_text(self->priv->sha, "");
 	}

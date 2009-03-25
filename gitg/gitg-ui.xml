@@ -457,6 +457,13 @@
                                 <property name="padding">3</property>
                               </packing>
                             </child>
+                            <child>
+                              <object class="GtkTextView" id="text_view_log">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="wrap_mode">word-char</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
                         <child type="tab">
