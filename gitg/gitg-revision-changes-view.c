@@ -402,15 +402,21 @@ gitg_revision_changes_view_class_init(GitgRevisionChangesViewClass *klass)
 static void
 on_diff_files_begin_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff_files)->window, cursor);
-	gdk_cursor_unref(cursor);
+	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff_files));
+	if (window != NULL) {
+		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
+		gdk_window_set_cursor(window, cursor);
+		gdk_cursor_unref(cursor);
+	}
 }
 
 static void
 on_diff_files_end_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff_files)->window, NULL);
+	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff_files));
+	if (window != NULL) {
+		gdk_window_set_cursor(window, NULL);
+	}
 }
 
 static gboolean
@@ -481,15 +487,21 @@ on_diff_files_update(GitgRunner *runner, gchar **buffer, GitgRevisionChangesView
 static void
 on_diff_begin_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff)->window, cursor);
-	gdk_cursor_unref(cursor);
+	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff));
+	if (window != NULL) {
+		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
+		gdk_window_set_cursor(window, cursor);
+		gdk_cursor_unref(cursor);
+	}
 }
 
 static void
 on_diff_end_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff)->window, NULL);
+	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff));
+	if (window != NULL) {
+		gdk_window_set_cursor(window, NULL);
+	}
 	
 	gchar *sha = gitg_revision_get_sha1(self->priv->revision);
 	gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
