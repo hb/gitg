@@ -161,18 +161,6 @@ diff_file_get_type()
 }
 
 static void
-update_markup(GObject *object)
-{
-	GtkLabel *label = GTK_LABEL(object);
-	gchar const *text = gtk_label_get_text(label);
-	
-	gchar *newtext = g_strconcat("<span weight='bold' foreground='#777'>", text, "</span>", NULL);
-
-	gtk_label_set_markup(label, newtext);
-	g_free(newtext);
-}
-
-static void
 revision_files_icon(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, GitgRevisionChangesView *self)
 {
 	DiffFile *f;
@@ -299,18 +287,6 @@ gitg_revision_changes_view_parser_finished(GtkBuildable *buildable, GtkBuilder *
 	
 	gitg_utils_set_monospace_font(GTK_WIDGET(rvv->priv->diff));
 	gtk_text_view_set_buffer(GTK_TEXT_VIEW(rvv->priv->diff), GTK_TEXT_BUFFER(buffer));
-
-	gchar const *lbls[] = {
-		"label_subject_lbl",
-		"label_author_lbl",
-		"label_sha_lbl",
-		"label_date_lbl",
-		"label_parent_lbl"
-	};
-	
-	int i;
-	for (i = 0; i < sizeof(lbls) / sizeof(gchar *); ++i)
-		update_markup(gtk_builder_get_object(builder, lbls[i]));
 	
 	g_signal_connect(rvv->priv->diff, "header-added", G_CALLBACK(on_header_added), rvv);
 }
