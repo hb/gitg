@@ -402,7 +402,7 @@ gitg_revision_changes_view_class_init(GitgRevisionChangesViewClass *klass)
 static void
 on_diff_files_begin_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff_files));
+	GdkWindow *window = GTK_WIDGET(self->priv->diff_files)->window;
 	if (window != NULL) {
 		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
 		gdk_window_set_cursor(window, cursor);
@@ -413,7 +413,7 @@ on_diff_files_begin_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 static void
 on_diff_files_end_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff_files));
+	GdkWindow *window = GTK_WIDGET(self->priv->diff_files)->window;
 	if (window != NULL) {
 		gdk_window_set_cursor(window, NULL);
 	}
@@ -487,7 +487,7 @@ on_diff_files_update(GitgRunner *runner, gchar **buffer, GitgRevisionChangesView
 static void
 on_diff_begin_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff));
+	GdkWindow *window = GTK_WIDGET(self->priv->diff)->window;
 	if (window != NULL) {
 		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
 		gdk_window_set_cursor(window, cursor);
@@ -498,7 +498,7 @@ on_diff_begin_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 static void
 on_diff_end_loading(GitgRunner *runner, GitgRevisionChangesView *self)
 {
-	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(self->priv->diff));
+	GdkWindow *window = GTK_WIDGET(self->priv->diff)->window;
 	if (window != NULL) {
 		gdk_window_set_cursor(window, NULL);
 	}
