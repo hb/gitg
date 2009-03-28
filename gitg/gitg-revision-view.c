@@ -20,6 +20,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include <gtk/gtk.h>
 #include <gtksourceview/gtksourceview.h>
 #include <gtksourceview/gtksourcelanguagemanager.h>
 #include <gtksourceview/gtksourcestyleschememanager.h>
@@ -61,7 +62,9 @@ struct _GitgRevisionViewPrivate
 	GtkLabel *date;
 	GtkTable *parents;
 	GtkTextView *log;
-	
+  
+  GitgRunner *log_runner;
+  
 	GitgRepository *repository;
 	GitgRevision *revision;
 	GSList *cached_headers;
@@ -303,7 +306,10 @@ static void
 gitg_revision_view_finalize(GObject *object)
 {
 	GitgRevisionView *self = GITG_REVISION_VIEW(object);
-	
+		
+	gitg_runner_cancel(self->priv->log_runner);
+	g_object_unref(self->priv->log_runner);
+
 	g_object_unref(self->priv->repository);
 	
 	free_cached_headers(self);
@@ -406,10 +412,69 @@ visible_from_cached_headers(GitgRevisionView *view, DiffFile *f)
 }
 
 static void
+on_log_begin_loading(GitgRunner *runner, GitgRevisionView *self)
+{
+	GdkWindow *window = GTK_WIDGET(self->priv->log)->window;
+	if (window != NULL) {
+		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
+		gdk_window_set_cursor(window, cursor);
+		gdk_cursor_unref(cursor);
+	}
+}
+
+static void
+on_log_end_loading(GitgRunner *runner, GitgRevisionView *self)
+{
+	GdkWindow *window = GTK_WIDGET(self->priv->log)->window;
+	if (window != NULL) {
+		gdk_window_set_cursor(window, NULL);
+	}
+}
+
+static void
+on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
+{
+	gchar *line;
+	GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
+	GtkTextIter iter;
+	
+	gtk_text_buffer_get_end_iter(buf, &iter);
+	
+	while ((line = *buffer++))
+	{
+    if (line[0] == '\0')
+    {
+      /* Blank line */
+      if (gtk_text_iter_is_start(&iter))
+        /* Ignore the first blank line */
+        line = NULL;
+    }
+    else if (line[0] == ' ')
+    {
+      line = g_strchug (line);
+    }
+    else
+      /* We keep only empty lines and lines with whitespace at begining */
+      line = NULL;
+    if (line != NULL)
+    {
+  		gtk_text_buffer_insert(buf, &iter, line, -1);
+	  	gtk_text_buffer_insert(buf, &iter, "\n", -1);
+    }
+	}
+}
+
+static void
 gitg_revision_view_init(GitgRevisionView *self)
 {
 	self->priv = GITG_REVISION_VIEW_GET_PRIVATE(self);
 	
+  self->priv->log_runner = gitg_runner_new(2000);
+	
+	g_signal_connect(self->priv->log_runner, "begin-loading", G_CALLBACK(on_log_begin_loading), self);
+	g_signal_connect(self->priv->log_runner, "update", G_CALLBACK(on_log_update), self);
+	g_signal_connect(self->priv->log_runner, "end-loading", G_CALLBACK(on_log_end_loading), self);
+
 }
 
 #define HASH_KEY "GitgRevisionViewHashKey"
@@ -511,6 +576,29 @@ update_parents(GitgRevisionView *self, GitgRevision *revision)
 	g_strfreev(parents);	
 }
 
+static void
+update_log(GitgRevisionView *self, GitgRevision *revision)
+{	
+	// First cancel a possibly still running log
+	gitg_runner_cancel(self->priv->log_runner);
+	
+	free_cached_headers(self);
+	
+	// Clear the buffer
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
+	gtk_text_buffer_set_text(buffer, "", 0);
+  
+	if (!revision)
+		return;
+
+	gchar *hash = gitg_revision_get_sha1(revision);
+	gitg_repository_run_commandv(self->priv->repository, self->priv->log_runner, NULL,
+								 "show", "--raw", "-M", "--pretty=full", 
+								 "--encoding=UTF-8", hash, NULL);
+
+	g_free(hash);
+}
+
 static gchar *
 format_date(GitgRevision *revision)
 {
@@ -564,6 +652,9 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 	
 	// Update parents
 	update_parents(self, revision);
+	
+	// Update log
+	update_log(self, revision);
 }
 
 void 
