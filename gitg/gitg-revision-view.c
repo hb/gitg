@@ -59,6 +59,7 @@ struct _GitgRevisionViewPrivate
 {
 	GtkLabel *sha;
 	GtkLabel *author;
+  GtkLabel *committer;
 	GtkLabel *date;
 	GtkTable *parents;
 	GtkTextView *log;
@@ -264,12 +265,14 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 
 	rvv->priv->sha = GTK_LABEL(gtk_builder_get_object(builder, "label_sha"));
 	rvv->priv->author = GTK_LABEL(gtk_builder_get_object(builder, "label_author"));
+	rvv->priv->committer = GTK_LABEL(gtk_builder_get_object(builder, "label_committer"));
 	rvv->priv->date = GTK_LABEL(gtk_builder_get_object(builder, "label_date"));
 	rvv->priv->parents = GTK_TABLE(gtk_builder_get_object(builder, "table_parents"));
 	rvv->priv->log = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_log"));
 	
 	gchar const *lbls[] = {
 		"label_author_lbl",
+		"label_committer_lbl",
 		"label_sha_lbl",
 		"label_date_lbl",
 		"label_parent_lbl"
@@ -454,8 +457,16 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
       line = g_strchug (line);
     }
     else
+    {
+#define AUTHOR_KEY "Author: "
+#define COMMITTER_KEY "Commit: "
+      if (g_str_has_prefix(line, AUTHOR_KEY))
+     	  gtk_label_set_text(self->priv->author, line+strlen(AUTHOR_KEY));
+      else if (g_str_has_prefix(line, COMMITTER_KEY))
+     	  gtk_label_set_text(self->priv->committer, line+strlen(COMMITTER_KEY));
       /* We keep only empty lines and lines with whitespace at begining */
       line = NULL;
+    }
     if (line != NULL)
     {
   		gtk_text_buffer_insert(buf, &iter, line, -1);
@@ -626,8 +637,6 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 	// Update labels
 	if (revision)
 	{
-		gtk_label_set_text(self->priv->author, gitg_revision_get_author(revision));
-
 		gchar *s = g_markup_escape_text(gitg_revision_get_subject(revision), -1);
 		gtk_text_buffer_set_text(tb, s, -1);
 		g_free(s);
@@ -645,6 +654,7 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 	else
 	{
 		gtk_label_set_text(self->priv->author, "");
+		gtk_label_set_text(self->priv->committer, "");
 		gtk_text_buffer_set_text(tb, "", -1);
 		gtk_label_set_text(self->priv->date, "");
 		gtk_label_set_text(self->priv->sha, "");
