@@ -906,6 +906,23 @@
                                 <property name="expand">false</property>
                               </packing>
                             </child>
+                            <child>
+                              <object class="GtkLabel" id="label_current_branch_lbl">
+                                <property name="label" translatable="yes">Branch:</property>
+                              </object>
+                              <packing>
+                                <property name="pack-type">start</property>
+                                <property name="expand">false</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="label_current_branch">
+                              </object>
+                              <packing>
+                                <property name="pack-type">start</property>
+                                <property name="expand">false</property>
+                              </packing>
+                            </child>
                           </object>
                           <packing>
                             <property name="expand">False</property>

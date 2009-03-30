@@ -70,6 +70,7 @@ struct _GitgCommitViewPrivate
 	GtkSourceView *changes_view;
 	GtkTextView *comment_view;
 	GtkCheckButton *check_button_signed_off_by;
+  GtkLabel *label_current_branch;
 	
 	GtkHScale *hscale_context;
 	gint context_size;
@@ -693,6 +694,7 @@ gitg_commit_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	self->priv->changes_view = GTK_SOURCE_VIEW(gtk_builder_get_object(builder, "source_view_changes"));
 	self->priv->comment_view = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_comment"));
 	self->priv->check_button_signed_off_by = GTK_CHECK_BUTTON(gtk_builder_get_object(builder, "check_button_signed_off_by"));
+	self->priv->label_current_branch = GTK_LABEL(gtk_builder_get_object(builder, "label_current_branch"));
 	
 	self->priv->hscale_context = GTK_HSCALE(gtk_builder_get_object(builder, "hscale_context"));
 	self->priv->group_context = GTK_ACTION_GROUP(gtk_builder_get_object(builder, "action_group_commit_context"));
@@ -841,6 +843,14 @@ gitg_commit_view_map(GtkWidget *widget)
 		return;
 	
 	initialize_commit(self);
+  
+  // FIXME update on other event
+  GitgRef *ref = gitg_repository_get_current_ref(self->priv->repository);
+  if (ref)
+  {
+    g_debug("Current branch: %s", ref->shortname);
+    gtk_label_set_text(self->priv->label_current_branch, ref->shortname);
+  }
 }
 
 static void
