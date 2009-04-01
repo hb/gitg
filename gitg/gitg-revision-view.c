@@ -20,6 +20,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include <gtk/gtk.h>
 #include <gtksourceview/gtksourceview.h>
 #include <gtksourceview/gtksourcelanguagemanager.h>
 #include <gtksourceview/gtksourcestyleschememanager.h>
@@ -58,16 +59,13 @@ struct _GitgRevisionViewPrivate
 {
 	GtkLabel *sha;
 	GtkLabel *author;
+  GtkLabel *committer;
 	GtkLabel *date;
-	GtkLabel *subject;
 	GtkTable *parents;
-	GtkSourceView *diff;
-	GtkTreeView *diff_files;
-	GtkListStore *list_store_diff_files;
-	
-	GitgRunner *diff_runner;
-	GitgRunner *diff_files_runner;
-	
+	GtkTextView *log;
+  
+  GitgRunner *log_runner;
+  
 	GitgRepository *repository;
 	GitgRevision *revision;
 	GSList *cached_headers;
@@ -267,52 +265,14 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 
 	rvv->priv->sha = GTK_LABEL(gtk_builder_get_object(builder, "label_sha"));
 	rvv->priv->author = GTK_LABEL(gtk_builder_get_object(builder, "label_author"));
+	rvv->priv->committer = GTK_LABEL(gtk_builder_get_object(builder, "label_committer"));
 	rvv->priv->date = GTK_LABEL(gtk_builder_get_object(builder, "label_date"));
-	rvv->priv->subject = GTK_LABEL(gtk_builder_get_object(builder, "label_subject"));
 	rvv->priv->parents = GTK_TABLE(gtk_builder_get_object(builder, "table_parents"));
-	rvv->priv->diff = GTK_SOURCE_VIEW(gtk_builder_get_object(builder, "revision_diff"));
-	rvv->priv->diff_files = GTK_TREE_VIEW(gtk_builder_get_object(builder, "tree_view_revision_files"));
+	rvv->priv->log = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_log"));
 	
-	GtkTreeSelection *selection = gtk_tree_view_get_selection(rvv->priv->diff_files);
-	gtk_tree_selection_set_mode(selection, GTK_SELECTION_MULTIPLE);
-	g_signal_connect(selection, "changed", G_CALLBACK(on_diff_files_selection_changed), rvv);
-	
-	g_signal_connect(rvv->priv->diff_files, "button-press-event", G_CALLBACK(on_diff_files_button_press), rvv);
-	
-	rvv->priv->list_store_diff_files = gtk_list_store_new(1, diff_file_get_type());
-
-	GtkTreeModel *filter = gtk_tree_model_filter_new(GTK_TREE_MODEL(rvv->priv->list_store_diff_files), NULL);
-	gtk_tree_view_set_model(rvv->priv->diff_files, filter);
-	
-	gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filter), diff_file_visible, NULL, NULL);
-	
-	gtk_tree_view_column_set_cell_data_func(GTK_TREE_VIEW_COLUMN(gtk_builder_get_object(builder, "revision_files_column_icon")),
-											GTK_CELL_RENDERER(gtk_builder_get_object(builder, "revision_files_cell_renderer_icon")),
-											(GtkTreeCellDataFunc)revision_files_icon,
-											rvv,
-											NULL);
-
-	gtk_tree_view_column_set_cell_data_func(GTK_TREE_VIEW_COLUMN(gtk_builder_get_object(builder, "revision_files_column_name")),
-											GTK_CELL_RENDERER(gtk_builder_get_object(builder, "revision_files_cell_renderer_name")),
-											(GtkTreeCellDataFunc)revision_files_name,
-											rvv,
-											NULL);
-	
-	GtkSourceLanguageManager *manager = gtk_source_language_manager_get_default();
-	GtkSourceLanguage *language = gtk_source_language_manager_get_language(manager, "gitgdiff");
-	GtkSourceBuffer *buffer = gtk_source_buffer_new_with_language(language);
-	g_object_unref(language);
-	
-	GtkSourceStyleSchemeManager *schememanager = gtk_source_style_scheme_manager_get_default();
-	GtkSourceStyleScheme *scheme = gtk_source_style_scheme_manager_get_scheme(schememanager, "gitg");
-	gtk_source_buffer_set_style_scheme(buffer, scheme);
-	
-	gitg_utils_set_monospace_font(GTK_WIDGET(rvv->priv->diff));
-	gtk_text_view_set_buffer(GTK_TEXT_VIEW(rvv->priv->diff), GTK_TEXT_BUFFER(buffer));
-
 	gchar const *lbls[] = {
-		"label_subject_lbl",
 		"label_author_lbl",
+		"label_committer_lbl",
 		"label_sha_lbl",
 		"label_date_lbl",
 		"label_parent_lbl"
@@ -321,8 +281,6 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	int i;
 	for (i = 0; i < sizeof(lbls) / sizeof(gchar *); ++i)
 		update_markup(gtk_builder_get_object(builder, lbls[i]));
-	
-	g_signal_connect(rvv->priv->diff, "header-added", G_CALLBACK(on_header_added), rvv);
 }
 
 static void
@@ -351,13 +309,10 @@ static void
 gitg_revision_view_finalize(GObject *object)
 {
 	GitgRevisionView *self = GITG_REVISION_VIEW(object);
-	
-	gitg_runner_cancel(self->priv->diff_runner);
-	g_object_unref(self->priv->diff_runner);
-	
-	gitg_runner_cancel(self->priv->diff_files_runner);
-	g_object_unref(self->priv->diff_files_runner);
-	
+		
+	gitg_runner_cancel(self->priv->log_runner);
+	g_object_unref(self->priv->log_runner);
+
 	g_object_unref(self->priv->repository);
 	
 	free_cached_headers(self);
@@ -433,20 +388,6 @@ gitg_revision_view_class_init(GitgRevisionViewClass *klass)
 	g_type_class_add_private(object_class, sizeof(GitgRevisionViewPrivate));
 }
 
-static void
-on_diff_files_begin_loading(GitgRunner *runner, GitgRevisionView *self)
-{
-	GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff_files)->window, cursor);
-	gdk_cursor_unref(cursor);
-}
-
-static void
-on_diff_files_end_loading(GitgRunner *runner, GitgRevisionView *self)
-{
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff_files)->window, NULL);
-}
-
 static gboolean
 match_indices(DiffFile *f, gchar const *from, gchar const *to)
 {
@@ -474,76 +415,63 @@ visible_from_cached_headers(GitgRevisionView *view, DiffFile *f)
 }
 
 static void
-add_diff_file(GitgRevisionView *view, DiffFile *f)
+on_log_begin_loading(GitgRunner *runner, GitgRevisionView *self)
 {
-	GtkTreeIter iter;
-	gtk_list_store_append(view->priv->list_store_diff_files, &iter);
-	
-	/* see if it is in the cached headers */
-	visible_from_cached_headers(view, f);
-
-	gtk_list_store_set(view->priv->list_store_diff_files, &iter, 0, f, -1);
-}
-
-static void
-on_diff_files_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
-{
-	gchar **line;
-	
-	while (*(line = buffer++))
-	{
-		if (**line == '\0')
-			continue;
-		
-		gchar **parts = g_strsplit(*line, " ", 5);
-		
-		if (g_strv_length(parts) == 5)
-		{
-			gchar **files = g_strsplit(parts[4], "\t", -1);
-			DiffFile *f = diff_file_new(parts[2], parts[3], files[0], files[1]);
-			
-			add_diff_file(self, f);
-			diff_file_unref(f);
-
-			g_strfreev(files);
-		}
-		
-		g_strfreev(parts);
+	GdkWindow *window = GTK_WIDGET(self->priv->log)->window;
+	if (window != NULL) {
+		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
+		gdk_window_set_cursor(window, cursor);
+		gdk_cursor_unref(cursor);
 	}
 }
 
 static void
-on_diff_begin_loading(GitgRunner *runner, GitgRevisionView *self)
+on_log_end_loading(GitgRunner *runner, GitgRevisionView *self)
 {
-	GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff)->window, cursor);
-	gdk_cursor_unref(cursor);
+	GdkWindow *window = GTK_WIDGET(self->priv->log)->window;
+	if (window != NULL) {
+		gdk_window_set_cursor(window, NULL);
+	}
 }
 
 static void
-on_diff_end_loading(GitgRunner *runner, GitgRevisionView *self)
-{
-	gdk_window_set_cursor(GTK_WIDGET(self->priv->diff)->window, NULL);
-	
-	gchar *sha = gitg_revision_get_sha1(self->priv->revision);
-	gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
-								 "show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
-	g_free(sha);
-}
-
-static void
-on_diff_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
+on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 {
 	gchar *line;
-	GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->diff));
+	GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
 	GtkTextIter iter;
 	
 	gtk_text_buffer_get_end_iter(buf, &iter);
 	
 	while ((line = *buffer++))
 	{
-		gtk_text_buffer_insert(buf, &iter, line, -1);
-		gtk_text_buffer_insert(buf, &iter, "\n", -1);
+    if (line[0] == '\0')
+    {
+      /* Blank line */
+      if (gtk_text_iter_is_start(&iter))
+        /* Ignore the first blank line */
+        line = NULL;
+    }
+    else if (line[0] == ' ')
+    {
+      line = g_strchug (line);
+    }
+    else
+    {
+#define AUTHOR_KEY "Author: "
+#define COMMITTER_KEY "Commit: "
+      if (g_str_has_prefix(line, AUTHOR_KEY))
+     	  gtk_label_set_text(self->priv->author, line+strlen(AUTHOR_KEY));
+      else if (g_str_has_prefix(line, COMMITTER_KEY))
+     	  gtk_label_set_text(self->priv->committer, line+strlen(COMMITTER_KEY));
+      /* We keep only empty lines and lines with whitespace at begining */
+      line = NULL;
+    }
+    if (line != NULL)
+    {
+  		gtk_text_buffer_insert(buf, &iter, line, -1);
+	  	gtk_text_buffer_insert(buf, &iter, "\n", -1);
+    }
 	}
 }
 
@@ -552,17 +480,12 @@ gitg_revision_view_init(GitgRevisionView *self)
 {
 	self->priv = GITG_REVISION_VIEW_GET_PRIVATE(self);
 	
-	self->priv->diff_runner = gitg_runner_new(2000);
+  self->priv->log_runner = gitg_runner_new(2000);
 	
-	g_signal_connect(self->priv->diff_runner, "begin-loading", G_CALLBACK(on_diff_begin_loading), self);
-	g_signal_connect(self->priv->diff_runner, "update", G_CALLBACK(on_diff_update), self);
-	g_signal_connect(self->priv->diff_runner, "end-loading", G_CALLBACK(on_diff_end_loading), self);
-	
-	self->priv->diff_files_runner = gitg_runner_new(2000);
-	
-	g_signal_connect(self->priv->diff_files_runner, "begin-loading", G_CALLBACK(on_diff_files_begin_loading), self);
-	g_signal_connect(self->priv->diff_files_runner, "update", G_CALLBACK(on_diff_files_update), self);
-	g_signal_connect(self->priv->diff_files_runner, "end-loading", G_CALLBACK(on_diff_files_end_loading), self);
+	g_signal_connect(self->priv->log_runner, "begin-loading", G_CALLBACK(on_log_begin_loading), self);
+	g_signal_connect(self->priv->log_runner, "update", G_CALLBACK(on_log_update), self);
+	g_signal_connect(self->priv->log_runner, "end-loading", G_CALLBACK(on_log_end_loading), self);
+
 }
 
 #define HASH_KEY "GitgRevisionViewHashKey"
@@ -665,26 +588,23 @@ update_parents(GitgRevisionView *self, GitgRevision *revision)
 }
 
 static void
-update_diff(GitgRevisionView *self, GitgRepository *repository)
+update_log(GitgRevisionView *self, GitgRevision *revision)
 {	
-	// First cancel a possibly still running diff
-	gitg_runner_cancel(self->priv->diff_runner);
-	gitg_runner_cancel(self->priv->diff_files_runner);
+	// First cancel a possibly still running log
+	gitg_runner_cancel(self->priv->log_runner);
 	
 	free_cached_headers(self);
 	
 	// Clear the buffer
-	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->diff));
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
 	gtk_text_buffer_set_text(buffer, "", 0);
-	
-	gtk_list_store_clear(self->priv->list_store_diff_files);
-	
-	if (!self->priv->revision)
+  
+	if (!revision)
 		return;
 
-	gchar *hash = gitg_revision_get_sha1(self->priv->revision);
-	gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
-								 "show", "-M", "--pretty=format:%s%n%n%b", 
+	gchar *hash = gitg_revision_get_sha1(revision);
+	gitg_repository_run_commandv(self->priv->repository, self->priv->log_runner, NULL,
+								 "show", "--raw", "-M", "--pretty=full", 
 								 "--encoding=UTF-8", hash, NULL);
 
 	g_free(hash);
@@ -708,20 +628,18 @@ void
 gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, GitgRevision *revision)
 {
 	GtkClipboard *cb;
+	GtkTextBuffer *tb;
 
 	g_return_if_fail(GITG_IS_REVISION_VIEW(self));
+
+	tb = gtk_text_view_get_buffer(self->priv->log);
 
 	// Update labels
 	if (revision)
 	{
-		gtk_label_set_text(self->priv->author, gitg_revision_get_author(revision));
-
 		gchar *s = g_markup_escape_text(gitg_revision_get_subject(revision), -1);
-		gchar *subject = g_strconcat("<b>", s, "</b>", NULL);
+		gtk_text_buffer_set_text(tb, s, -1);
 		g_free(s);
-
-		gtk_label_set_markup(self->priv->subject, subject);
-		g_free(subject);
 
 		gtk_label_set_text(self->priv->date, format_date(revision));
 	
@@ -736,7 +654,8 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 	else
 	{
 		gtk_label_set_text(self->priv->author, "");
-		gtk_label_set_text(self->priv->subject, "");
+		gtk_label_set_text(self->priv->committer, "");
+		gtk_text_buffer_set_text(tb, "", -1);
 		gtk_label_set_text(self->priv->date, "");
 		gtk_label_set_text(self->priv->sha, "");
 	}
@@ -744,9 +663,8 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 	// Update parents
 	update_parents(self, revision);
 	
-	// Update diff
-	self->priv->revision = revision;
-	update_diff(self, repository);
+	// Update log
+	update_log(self, revision);
 }
 
 void 
@@ -766,93 +684,3 @@ gitg_revision_view_set_repository(GitgRevisionView *view, GitgRepository *reposi
 	
 	g_object_notify(G_OBJECT(view), "repository");
 }
-
-static gboolean
-find_diff_file(GitgRevisionView *view, GitgDiffIter *iter, GtkTreeIter *it, DiffFile **f)
-{
-	gchar *from;
-	gchar *to;
-	
-	if (!gitg_diff_iter_get_index(iter, &from, &to))
-		return FALSE;
-	
-	GtkTreeModel *model = GTK_TREE_MODEL(view->priv->list_store_diff_files);
-	
-	if (!gtk_tree_model_get_iter_first(model, it))
-		return FALSE;
-	
-	do
-	{
-		gtk_tree_model_get(model, it, 0, f, -1);
-		
-		if (match_indices(*f, from, to))
-			return TRUE;
-		
-		diff_file_unref(*f);
-	} while (gtk_tree_model_iter_next(model, it));
-	
-	return FALSE;
-}
-
-static void 
-on_header_added(GitgDiffView *view, GitgDiffIter *iter, GitgRevisionView *self)
-{
-	GtkTreeIter it;
-	DiffFile *f;
-	
-	gchar *from = NULL, *to = NULL;
-	gitg_diff_iter_get_index(iter, &from, &to);
-	
-	if (find_diff_file(self, iter, &it, &f))
-	{
-		if (!f->visible)
-		{
-			f->visible = TRUE;
-			f->iter = *iter;
-
-			diff_file_unref(f);
-			
-			GtkTreeModel *model = GTK_TREE_MODEL(self->priv->list_store_diff_files);
-			GtkTreePath *path = gtk_tree_model_get_path(model, &it);
-			
-			gtk_tree_model_row_changed(model, path, &it);
-			gtk_tree_path_free(path);
-		}
-	}
-	else
-	{
-		/* Insert in cached headers */
-		CachedHeader *header = g_slice_new(CachedHeader);
-		header->iter = *iter;
-
-		self->priv->cached_headers = g_slist_prepend(self->priv->cached_headers, header);
-	}
-}
-
-typedef struct
-{
-	gint numselected;
-	GtkTreeSelection *selection;
-} ForeachSelectionData;
-
-static gboolean
-foreach_selection_changed(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, ForeachSelectionData *data)
-{
-	gboolean visible = data->numselected == 0 || gtk_tree_selection_path_is_selected(data->selection, path);
-	
-	DiffFile *f;
-	gtk_tree_model_get(model, iter, 0, &f, -1);
-	
-	gitg_diff_iter_set_visible(&f->iter, visible);
-	diff_file_unref(f);
-
-	return FALSE;
-}
-
-static void 
-on_diff_files_selection_changed(GtkTreeSelection *selection, GitgRevisionView *self)
-{
-	ForeachSelectionData data = {gtk_tree_selection_count_selected_rows(selection), selection};
-	gtk_tree_model_foreach(GTK_TREE_MODEL(self->priv->list_store_diff_files), (GtkTreeModelForeachFunc)foreach_selection_changed, &data);
-}
-

@@ -35,6 +35,7 @@ NOINST_H_FILES = 			\
 	gitg-revision-tree-store.h	\
 	gitg-revision-tree-view.h	\
 	gitg-revision-view.h		\
+	gitg-revision-changes-view.h		\
 	gitg-runner.h			\
 	gitg-settings.h			\
 	gitg-types.h			\
@@ -65,6 +66,7 @@ gitg_SOURCES = 				\
 	gitg-revision-tree-store.c	\
 	gitg-revision-tree-view.c	\
 	gitg-revision-view.c		\
+	gitg-revision-changes-view.c		\
 	gitg-runner.c			\
 	gitg-settings.c			\
 	gitg-utils.c			\
