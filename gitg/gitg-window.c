@@ -59,6 +59,7 @@ struct _GitgWindowPrivate
 	GitgCommitView *commit_view;
 	GtkWidget *search_popup;
 	GtkComboBox *combo_branches;
+	GtkEntry *entry_path;
 	
 	GtkWidget *vpaned_main;
 	GtkWidget *hpaned_commit;
@@ -286,25 +287,52 @@ branches_separator_func(GtkTreeModel *model, GtkTreeIter *iter, gpointer data)
 }
 
 static void
+filter_repository(GitgWindow *window)
+{
+	gchar **args;
+	const gchar *path;
+	int argc = 0;
+
+	args = g_new(gchar*, 4);
+
+	if (gtk_combo_box_get_active(window->priv->combo_branches) >= 2)
+	{
+		gchar *name;
+		GtkTreeIter iter;
+		GtkTreeIter next;
+	
+		gtk_combo_box_get_active_iter(window->priv->combo_branches, &iter);
+		next = iter;
+	
+		if (!gtk_tree_model_iter_next(gtk_combo_box_get_model(window->priv->combo_branches), &next))
+			name = g_strdup("--all");
+		else
+			gtk_tree_model_get(gtk_combo_box_get_model(window->priv->combo_branches), &iter, 0, &name, -1);
+		
+		args[argc++] = name;
+	}
+
+	path = gtk_entry_get_text(window->priv->entry_path);
+	if (path)
+	{
+		args[argc++] = g_strdup("--");
+		args[argc++] = g_strdup(path);
+	}
+	
+	gitg_repository_load(window->priv->repository, argc, (gchar const **)args, NULL);
+	/*g_strfreev(args);*/
+}
+
+static void
+on_path_activate(GtkEntry *entry, GitgWindow *window)
+{
+	filter_repository(window);
+}
+
+static void
 on_branches_combo_changed(GtkComboBox *combo, GitgWindow *window)
 {
-	if (gtk_combo_box_get_active(combo) < 2)
-		return;
-	
-	gchar *name;
-	GtkTreeIter iter;
-	GtkTreeIter next;
-	
-	gtk_combo_box_get_active_iter(combo, &iter);
-	next = iter;
-	
-	if (!gtk_tree_model_iter_next(gtk_combo_box_get_model(combo), &next))
-		name = g_strdup("--all");
-	else
-		gtk_tree_model_get(gtk_combo_box_get_model(combo), &iter, 0, &name, -1);
-
-	gitg_repository_load(window->priv->repository, 1, (gchar const **)&name, NULL);
-	g_free(name);
+	filter_repository(window);
 }
 
 static void
@@ -376,6 +404,7 @@ gitg_window_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	window->priv->revision_changes_view = GITG_REVISION_CHANGES_VIEW(gtk_builder_get_object(builder, "revision_changes_view"));
 	window->priv->revision_tree_view = GITG_REVISION_TREE_VIEW(gtk_builder_get_object(builder, "revision_tree_view"));
 	window->priv->commit_view = GITG_COMMIT_VIEW(gtk_builder_get_object(builder, "hpaned_commit"));
+	window->priv->entry_path = GTK_ENTRY(gtk_builder_get_object(builder, "entry_path"));
 
 	restore_state(window);
 
@@ -404,7 +433,9 @@ gitg_window_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	GtkTreeSelection *selection = gtk_tree_view_get_selection(window->priv->tree_view);
 	g_signal_connect(selection, "changed", G_CALLBACK(on_selection_changed), window);
 	g_signal_connect(window->priv->revision_view, "parent-activated", G_CALLBACK(on_parent_activated), window);
-	
+
+	g_signal_connect(window->priv->entry_path, "activate", G_CALLBACK(on_path_activate), window);
+
 	g_signal_connect(window->priv->tree_view, "motion-notify-event", G_CALLBACK(on_tree_view_motion), window);
 	g_signal_connect(window->priv->tree_view, "button-release-event", G_CALLBACK(on_tree_view_button_release), window);
 }
