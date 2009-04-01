@@ -725,21 +725,26 @@ static gchar *
 load_current_ref(GitgRepository *self)
 {
 	gchar **out;
+  gchar *cur = NULL;
 	gchar *ret = NULL;
+	out = gitg_repository_command_with_outputv(self, NULL, "show-branch", "--sha1-name", "--current", "--list", NULL);
 
-	out = gitg_repository_command_with_outputv(self, NULL, "show-branch", "--sha1-name", "--current", NULL);
-	
 	if (!out)
 		return NULL;
+
+  gchar **refs = out;
+  while ((cur = *refs++) != NULL)
+  {
+    if (cur[0] == '*')
+    {
+      gchar *begin = cur + 3;
+	    gchar *end = g_utf8_strchr(cur, -1, ']');
 	
-	if (*out)
-	{
-		gchar *pos = g_utf8_strchr(*out, -1, ']');
-		
-		if (pos)
-			ret = g_strndup(*out + 1, (pos - *out) - 2);
-	}
-	
+	    if (end)
+		    ret = g_strndup(begin, (end - begin));
+    }
+  }
+	  
 	g_strfreev(out);
 	return ret;
 }
@@ -761,8 +766,8 @@ load_refs(GitgRepository *self)
 		if (g_strv_length(components) == 2)
 		{
 			GitgRef *ref = add_ref(self, components[1], components[0]);
-			
-			if (strncmp(components[1], current, strlen(current)) == 0)
+      
+			if (g_str_has_suffix(components[0], current))
 				self->priv->current_ref = gitg_ref_copy(ref);
 		}
 		
