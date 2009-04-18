@@ -426,7 +426,7 @@ on_log_begin_loading(GitgRunner *runner, GitgRevisionView *self)
 }
 
 static void
-on_log_end_loading(GitgRunner *runner, GitgRevisionView *self)
+on_log_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *self)
 {
 	GdkWindow *window = GTK_WIDGET(self->priv->log)->window;
 	if (window != NULL) {
@@ -598,7 +598,7 @@ update_log(GitgRevisionView *self, GitgRevision *revision)
 	// Clear the buffer
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
 	gtk_text_buffer_set_text(buffer, "", 0);
-  
+	
 	if (!revision)
 		return;
 
@@ -608,20 +608,6 @@ update_log(GitgRevisionView *self, GitgRevision *revision)
 								 "--encoding=UTF-8", hash, NULL);
 
 	g_free(hash);
-}
-
-static gchar *
-format_date(GitgRevision *revision)
-{
-	guint64 timestamp = gitg_revision_get_timestamp(revision);
-	time_t t = timestamp;
-	
-	char *ptr = ctime(&t);
-	
-	// Remove newline?
-	ptr[strlen(ptr) - 1] = '\0';
-	
-	return ptr;
 }
 
 void
@@ -641,7 +627,9 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 		gtk_text_buffer_set_text(tb, s, -1);
 		g_free(s);
 
-		gtk_label_set_text(self->priv->date, format_date(revision));
+		gchar *date = gitg_utils_timestamp_to_str(gitg_revision_get_timestamp(revision));
+		gtk_label_set_text(self->priv->date, date);
+		g_free(date);
 	
 		gchar *sha = gitg_revision_get_sha1(revision);
 		gtk_label_set_text(self->priv->sha, sha);
