@@ -765,27 +765,33 @@ gitg_window_init(GitgWindow *self)
 }
 
 static void
-on_begin_loading(GitgRunner *loader, GitgWindow *window)
+on_begin_loading(GitgRunner *loader, GitgWindow *self)
 {
-	GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
-	gdk_window_set_cursor(GTK_WIDGET(window->priv->tree_view)->window, cursor);
-	gdk_cursor_unref(cursor);
+	GdkWindow *window = GTK_WIDGET(self->priv->tree_view)->window;
+	if (window) {
+		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
+		gdk_window_set_cursor(window, cursor);
+		gdk_cursor_unref(cursor);
+	}
 
-	gtk_statusbar_push(window->priv->statusbar, 0, _("Begin loading repository"));
+	gtk_statusbar_push(self->priv->statusbar, 0, _("Begin loading repository"));
 	
-	g_timer_reset(window->priv->load_timer);
-	g_timer_start(window->priv->load_timer);
+	g_timer_reset(self->priv->load_timer);
+	g_timer_start(self->priv->load_timer);
 }
 
 static void
-on_end_loading(GitgRunner *loader, gboolean cancelled, GitgWindow *window)
+on_end_loading(GitgRunner *loader, gboolean cancelled, GitgWindow *self)
 {
-	gchar *msg = g_strdup_printf(_("Loaded %d revisions in %.2fs"), gtk_tree_model_iter_n_children(GTK_TREE_MODEL(window->priv->repository), NULL), g_timer_elapsed(window->priv->load_timer, NULL));
+	gchar *msg = g_strdup_printf(_("Loaded %d revisions in %.2fs"), gtk_tree_model_iter_n_children(GTK_TREE_MODEL(self->priv->repository), NULL), g_timer_elapsed(self->priv->load_timer, NULL));
 
-	gtk_statusbar_push(window->priv->statusbar, 0, msg);
+	gtk_statusbar_push(self->priv->statusbar, 0, msg);
 	
 	g_free(msg);
-	gdk_window_set_cursor(GTK_WIDGET(window->priv->tree_view)->window, NULL);
+	GdkWindow *window = GTK_WIDGET(self->priv->tree_view)->window;
+	if (window) {
+		gdk_window_set_cursor(window, NULL);
+	}
 }
 
 static void
