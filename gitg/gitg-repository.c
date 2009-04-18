@@ -741,6 +741,10 @@ static void
 load_refs(GitgRepository *self)
 {
 	gchar *current = load_current_ref(self);
+	// FIXME quite gruik
+	// We have to compare absolute refname in order to avoid case where local branch name
+	// copy a remote branch name.
+	gchar *current_refname = g_strconcat("refs/heads/", current, NULL);
 	
 	gchar **refs = gitg_repository_command_with_outputv(self, NULL, "for-each-ref", "--format=%(refname) %(objectname)", "refs", NULL);
 	gchar **buffer = refs;
@@ -755,7 +759,7 @@ load_refs(GitgRepository *self)
 		{
 			GitgRef *ref = add_ref(self, components[1], components[0]);
       
-			if (current != NULL && g_str_has_suffix(components[0], current))
+			if (current != NULL && strcmp(components[0], current_refname) == 0)
 				self->priv->current_ref = gitg_ref_copy(ref);
 		}
 		
@@ -764,6 +768,7 @@ load_refs(GitgRepository *self)
 
 	g_strfreev(refs);
 	g_free(current);
+	g_free(current_refname);
 }
 
 void
