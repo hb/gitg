@@ -522,7 +522,7 @@ on_begin_loading(GitgRunner *loader, GitgWindow *self)
 }
 
 static void
-on_end_loading(GitgRunner *loader, GitgWindow *self)
+on_end_loading(GitgRunner *loader, gboolean cancelled, GitgWindow *self)
 {
 	gchar *msg = g_strdup_printf(_("Loaded %d revisions in %.2fs"), gtk_tree_model_iter_n_children(GTK_TREE_MODEL(self->priv->repository), NULL), g_timer_elapsed(self->priv->load_timer, NULL));
 
