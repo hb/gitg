@@ -70,7 +70,7 @@ struct _GitgCommitViewPrivate
 	GtkSourceView *changes_view;
 	GtkTextView *comment_view;
 	GtkCheckButton *check_button_signed_off_by;
-  GtkLabel *label_current_branch;
+	GtkLabel *label_current_branch;
 	
 	GtkHScale *hscale_context;
 	gint context_size;
@@ -749,6 +749,15 @@ gitg_commit_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	g_signal_connect(gtk_builder_get_object(builder, "RevertChangesAction"), "activate", G_CALLBACK(on_revert_changes), self);
 	g_signal_connect(gtk_builder_get_object(builder, "IgnoreFileAction"), "activate", G_CALLBACK(on_ignore_file), self);
 	g_signal_connect(gtk_builder_get_object(builder, "UnstageChangesAction"), "activate", G_CALLBACK(on_unstage_changes), self);
+
+	/* Update look & feel */
+	GtkLabel *current_branch_lbl = GTK_LABEL(gtk_builder_get_object(builder, "label_current_branch_lbl"));
+	gchar *s = g_markup_escape_text(gtk_label_get_text(current_branch_lbl), -1);
+	gchar *s_markup = g_markup_printf_escaped ("<span weight=\"bold\">%s</span>", s);
+	g_free(s);
+	gtk_label_set_markup(current_branch_lbl, s_markup);
+	g_free(s_markup);
+
 }
 
 static void

@@ -944,6 +944,7 @@
                             </child>
                             <child>
                               <object class="GtkLabel" id="label_current_branch">
+                                <property name="selectable">True</property>
                               </object>
                               <packing>
                                 <property name="pack-type">start</property>
