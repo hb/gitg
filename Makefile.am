@@ -1,17 +1,22 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = gitg data po
+SUBDIRS = gitg data po help
 
 DISTCLEANFILES = \
+	gnome-doc-utils.make \
 	intltool-extract \
 	intltool-merge \
 	intltool-update
 
 EXTRA_DIST = \
 	autogen.sh \
+	gnome-doc-utils.make \
 	intltool-extract.in \
 	intltool-merge.in \
 	intltool-update.in
+
+DISTCHECK_CONFIGURE_FLAGS = \
+	--disable-scrollkeeper
 
 bundle:
 	rm -rf "$(bundledir)"; mkdir "$(bundledir)"; \

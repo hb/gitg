@@ -70,6 +70,11 @@ AC_SUBST(bundledir)
 
 AM_GCONF_SOURCE_2
 
+dnl  -------------
+dnl | User Manual |---------------------------------------
+dnl  -------------
+GNOME_DOC_INIT
+
 AC_CONFIG_FILES([
 Makefile
 gitg/Makefile
@@ -77,6 +82,7 @@ data/Makefile
 data/gitg.desktop.in
 data/icons/Makefile
 po/Makefile.in
+help/Makefile
 ])
 
 AC_OUTPUT

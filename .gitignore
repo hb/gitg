@@ -10,6 +10,7 @@ aclocal.m4
 configure
 gitg/gitg
 main.sh
+gnome-doc-utils.make
 omf.make
 stamp-h1
 xmldocs.make
