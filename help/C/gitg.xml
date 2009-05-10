@@ -74,7 +74,85 @@
 <sect1 id="introduction">
   <title>Introduction</title>
   <para>The <application>&app;</application> application enables you to graphically browse and manipulate the contents of a git directory tree.</para>
-<!-- FIXME: This should belong into getting started, but needs some feedback from Mathias  -->
+</sect1>
+
+<sect1 id="history">
+  <title>History view</title>
+		<para>By default, <application>&app;</application> starts in <guilabel>History</guilabel> view.</para>
+		<figure id="gitg-main">
+		  <title>&app; Window</title>
+		  <screenshot>
+			 <mediaobject>
+				<imageobject>
+				  <imagedata fileref="figures/gitgmain.png" format="PNG"/>
+					 </imageobject>
+				<textobject> <phrase>Shows gitg main window.</phrase>
+				</textobject>
+			</mediaobject>
+		  </screenshot>
+		</figure>
+		<para><application>&app;</application> is able to display large repositories.
+		For example, the linux's repository.</para>
+		<figure id="gitg-large-repo">
+		  <title>&app; browsing large repository</title>
+		  <screenshot>
+			 <mediaobject>
+				<imageobject>
+				  <imagedata fileref="figures/gitglinux.png" format="PNG"/>
+					 </imageobject>
+				<textobject> <phrase>Shows gitg browsing a large repository (the linux's one).</phrase>
+				</textobject>
+			</mediaobject>
+		  </screenshot>
+		</figure>
+		<para>It can be quite annoying to browse large with many concurrent branches.
+		To ease this browsing, <application>&app;</application> is able to collapse lines.</para>
+		<figure id="gitg-collapse">
+		  <title>&app; browsing collapsed large repository</title>
+		  <screenshot>
+			 <mediaobject>
+				<imageobject>
+				  <imagedata fileref="figures/gitglinux2.png" format="PNG"/>
+					 </imageobject>
+				<textobject> <phrase>Shows gitg browsing a large repository (the linux's one) but branch lines are collapsed.</phrase>
+				</textobject>
+			</mediaobject>
+		  </screenshot>
+		</figure>
+</sect1>
+
+<sect1 id="commit">
+  <title>Commit view</title>
+  <para><application>&app;</application> enables you to commit you work.
+  In order to do this, <application>&app;</application> reuse the <application>gitk</application> user interface design.
+  So, in a single view, you can browse unstaged and staged content, display the changes, edit the commit message and fire the commit.</para>
+		<figure id="gitg-stage">
+		  <title>Staging changes</title>
+		  <screenshot>
+			 <mediaobject>
+				<imageobject>
+				  <imagedata fileref="figures/gitgcommit.png" format="PNG"/>
+					 </imageobject>
+				<textobject> <phrase>Shows gitg staging changes.</phrase>
+				</textobject>
+			</mediaobject>
+		  </screenshot>
+		</figure>
+		<figure id="gitg-unstage">
+		  <title>Unstaging changes</title>
+		  <screenshot>
+			 <mediaobject>
+				<imageobject>
+				  <imagedata fileref="figures/gitgcommit2.png" format="PNG"/>
+					 </imageobject>
+				<textobject> <phrase>Shows gitg unstaging changes.</phrase>
+				</textobject>
+			</mediaobject>
+		  </screenshot>
+		</figure>
+  <note><para>You can stage (or unstage) only one hunk at a time. You just have to click on the diff line starting with <guilabel>@@</guilabel> (as shown on both screenshots).</para></note>
+  <note><para>While checking changes, you can modify the size of the diff context by adjusting the ruler on the right-top-corner of the diff area.</para></note>
+
 </sect1>
 
 </article>
