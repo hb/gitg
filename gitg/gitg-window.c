@@ -957,6 +957,17 @@ on_recent_open(GtkRecentChooser *chooser, GitgWindow *window)
 	g_object_unref(file);
 }
 
+void
+on_help_contents(GtkAction *action, GitgWindow *window)
+{
+#if GTK_CHECK_VERSION (2, 14, 0)
+	gchar *uri;
+	uri = g_strdup_printf("ghelp:%s", PACKAGE);
+        gtk_show_uri(NULL, uri, GDK_CURRENT_TIME, NULL);
+	g_free(uri);
+#endif
+}
+
 #if GTK_CHECK_VERSION (2, 14, 0)
 static void
 url_activate_hook(GtkAboutDialog *dialog, gchar const *link, gpointer data)

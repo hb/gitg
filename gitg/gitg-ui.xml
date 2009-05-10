@@ -96,6 +96,12 @@
     <child>
       <object class="GtkActionGroup" id="action_group_menu_help">
         <child>
+          <object class="GtkAction" id="HelpContentsAction">
+            <property name="stock-id">gtk-help</property>
+            <signal name="activate" handler="on_help_contents"/>
+          </object>
+        </child>
+        <child>
           <object class="GtkAction" id="HelpAboutAction">
             <property name="stock-id">gtk-about</property>
             <signal name="activate" handler="on_help_about"/>
@@ -146,6 +152,8 @@
           <menuitem action="ViewRefreshAction"/>
         </menu>
         <menu action="HelpAction">
+          <menuitem action="HelpContentsAction"/>
+          <separator/>
           <menuitem action="HelpAboutAction"/>
         </menu>
       </menubar>
