@@ -26,6 +26,8 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
+#include "gitg-command.h"
+
 G_BEGIN_DECLS
 
 #define GITG_TYPE_RUNNER			(gitg_runner_get_type ())
@@ -73,6 +75,7 @@ gboolean gitg_runner_run_stream(GitgRunner *runner, GInputStream *stream, GError
 
 gboolean gitg_runner_run_with_arguments(GitgRunner *runner, gchar const **argv, gchar const *wd, gchar const *input, GError **error);
 gboolean gitg_runner_run_working_directory(GitgRunner *runner, gchar const **argv, gchar const *wd, GError **error);
+gboolean gitg_runner_run_command(GitgRunner *runner, GitgCommand *command, gchar const *input, GError **error);
 gboolean gitg_runner_run(GitgRunner *runner, gchar const **argv, GError **error);
 gboolean gitg_runner_running(GitgRunner *runner);
 

@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "gitg-debug.h"
+#include "gitg-command.h"
 
 #include <gio/gio.h>
 #include <gio/gunixoutputstream.h>
@@ -554,7 +555,7 @@ gitg_runner_run_streams(GitgRunner *runner, GInputStream *input_stream, GOutputS
 }
 
 gboolean
-gitg_runner_run_with_arguments(GitgRunner *runner, gchar const **argv, gchar const *wd, gchar const *input, GError **error)
+gitg_runner_run_command(GitgRunner *runner, GitgCommand *command, gchar const *input, GError **error)
 {
 	g_return_val_if_fail(GITG_IS_RUNNER(runner), FALSE);
 
@@ -563,7 +564,7 @@ gitg_runner_run_with_arguments(GitgRunner *runner, gchar const **argv, gchar con
 
 	gitg_runner_cancel(runner);
 
-	gboolean ret = g_spawn_async_with_pipes(wd, (gchar **)argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD | (gitg_debug_enabled(GITG_DEBUG_RUNNER) ? 0 : G_SPAWN_STDERR_TO_DEV_NULL), NULL, NULL, &(runner->priv->pid), input ? &stdin : NULL, &stdout, NULL, error);
+	gboolean ret = gitg_command_spawn_async_with_pipes(command, &(runner->priv->pid), input ? &stdin : NULL, &stdout, NULL, error);
 
 	if (!ret)
 	{
@@ -587,6 +588,16 @@ gitg_runner_run_with_arguments(GitgRunner *runner, gchar const **argv, gchar con
 		g_object_unref(input_stream);
 	
 	return ret;
+}
+
+gboolean
+gitg_runner_run_with_arguments(GitgRunner *runner, gchar const **argv, gchar const *wd, gchar const *input, GError **error)
+{
+	GitgCommand *command = g_object_new (GITG_TYPE_COMMAND,
+																			 "arguments", argv,
+																			 "working-directory", wd,
+																			 NULL);
+	return gitg_runner_run_command(runner, command, input, error);
 }
 
 gboolean

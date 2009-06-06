@@ -18,6 +18,7 @@ NOINST_H_FILES = 			\
 	gitg-cell-renderer-path.h	\
 	gitg-changed-file.h		\
 	gitg-color.h			\
+	gitg-command.h		\
 	gitg-commit.h			\
 	gitg-commit-view.h		\
 	gitg-data-binding.h		\
@@ -48,6 +49,7 @@ gitg_SOURCES = 				\
 	gitg-cell-renderer-path.c	\
 	gitg-changed-file.c		\
 	gitg-color.c			\
+	gitg-command.c			\
 	gitg-commit.c			\
 	gitg-commit-view.c		\
 	gitg-data-binding.c		\
