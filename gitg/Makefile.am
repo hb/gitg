@@ -15,6 +15,7 @@ BUILT_SOURCES = 				\
 	gitg-enum-types.h
 
 NOINST_H_FILES = 			\
+	gitg-author.h			\
 	gitg-cell-renderer-path.h	\
 	gitg-changed-file.h		\
 	gitg-color.h			\
@@ -45,6 +46,7 @@ NOINST_H_FILES = 			\
 gitg_SOURCES = 				\
 	$(BUILT_SOURCES)		\
 	gitg.c				\
+	gitg-author.c			\
 	gitg-cell-renderer-path.c	\
 	gitg-changed-file.c		\
 	gitg-color.c			\
