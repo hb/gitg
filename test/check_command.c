@@ -15,7 +15,11 @@ void test()
 {
 	GError *error = NULL;
 	gchar *args[] = { "env", NULL };
-	GitgCommand *command = g_object_new (GITG_TYPE_COMMAND, "arguments", args, NULL);
+	gchar *env[] = { "GITG_FIRST=first", "GITG_SECOND=second", NULL };
+	GitgCommand *command = g_object_new (GITG_TYPE_COMMAND,
+	                                     "arguments", args,
+	                                     "environment", env,
+	                                     NULL);
 	GitgRunner *runner = gitg_runner_new_synchronized(255);
 	g_signal_connect(runner, "update", updatefunc, NULL);
 	gitg_runner_run_command(runner, command, NULL, &error);
