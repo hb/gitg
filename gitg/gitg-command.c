@@ -30,12 +30,14 @@ enum
 	PROP_0,
 	PROP_WORKING_DIRECTORY,
 	PROP_ARGUMENTS,
+	PROP_ENVIRONMENT,
 };
 
 struct _GitgCommandPrivate
 {
 	gchar*   working_directory;
 	gchar**  arguments;
+	gchar**  environment;
 };
 
 static void
@@ -50,6 +52,9 @@ gitg_command_get_property (GObject    *object,
 		break;
 	case PROP_ARGUMENTS:
 		g_value_set_boxed (value, g_strdupv(GITG_COMMAND (object)->priv->arguments));
+		break;
+	case PROP_ENVIRONMENT:
+		g_value_set_boxed (value, g_strdupv(GITG_COMMAND (object)->priv->environment));
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -71,6 +76,10 @@ gitg_command_set_property (GObject      *object,
 	case PROP_ARGUMENTS:
 		g_strfreev (priv->arguments);
 		priv->arguments = g_strdupv (g_value_get_boxed (value));
+		break;
+	case PROP_ENVIRONMENT:
+		g_strfreev (priv->environment);
+		priv->environment = g_strdupv (g_value_get_boxed (value));
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -124,6 +133,20 @@ gitg_command_class_init (GitgCommandClass *klass)
 	                                                     "",
 																											 G_TYPE_STRV,
 	                                                     G_PARAM_READWRITE));
+
+	/**
+	 * GitgCommand:environment:
+	 *
+	 * The "environment" property.
+	 */
+	g_object_class_install_property (object_class,
+	                                 PROP_ENVIRONMENT,
+	                                 g_param_spec_boxed ("environment",
+	                                                     "env",
+	                                                     "",
+																											 G_TYPE_STRV,
+	                                                     G_PARAM_READWRITE));
+
 
 	g_type_class_add_private(object_class, sizeof(GitgCommandPrivate));
 }
@@ -330,9 +353,10 @@ gitg_command_spawn_async_with_pipes (GitgCommand *command,
 {
 	gchar *wd = GITG_COMMAND (command)->priv->working_directory;
 	gchar **argv = GITG_COMMAND (command)->priv->arguments;
+	gchar **env = GITG_COMMAND (command)->priv->environment;
 	
 	// TODO do we need to rename GITG_DEBUG_RUNNER?
-	gboolean ret = g_spawn_async_with_pipes(wd, argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD | (gitg_debug_enabled(GITG_DEBUG_RUNNER) ? 0 : G_SPAWN_STDERR_TO_DEV_NULL), NULL, NULL,
+	gboolean ret = g_spawn_async_with_pipes(wd, argv, env, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD | (gitg_debug_enabled(GITG_DEBUG_RUNNER) ? 0 : G_SPAWN_STDERR_TO_DEV_NULL), NULL, NULL,
 																					child_pid, standard_input, standard_output, standard_error, error);
 	return ret;
 }
