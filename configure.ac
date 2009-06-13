@@ -77,6 +77,7 @@ data/Makefile
 data/gitg.desktop.in
 data/icons/Makefile
 po/Makefile.in
+test/Makefile
 ])
 
 AC_OUTPUT
