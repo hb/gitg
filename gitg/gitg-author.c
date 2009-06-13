@@ -34,25 +34,18 @@ struct _GitgAuthorPrivate
 	gchar *email;
 };
 
+#define GET_PRIV(o)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((o), GITG_TYPE_AUTHOR, GitgAuthorPrivate))
+
+
 G_DEFINE_TYPE (GitgAuthor, gitg_author, G_TYPE_OBJECT);
 
 static void
-author_set_name (GitgAuthorPrivate *priv, const char *name)
+gitg_author_init (GitgAuthor *author)
 {
-	g_free (priv->name);
-
-	priv->name = g_strdup (name);
-}
-
-static void
-author_set_email (GitgAuthorPrivate *priv, const char *email)
-{
-}
-
-static void
-gitg_author_init (GitgAuthor *object)
-{
-	/* TODO: Add initialization code here */
+	author->priv = GET_PRIV(author);
+	author->priv->name = NULL;
+	author->priv->email = NULL;
 }
 
 static void
@@ -126,6 +119,14 @@ gitg_author_class_init (GitgAuthorClass *klass)
 	g_type_class_add_private (object_class, sizeof (GitgAuthorPrivate));
 }
 
+GitgAuthor *
+gitg_author_new_from_string (const gchar *string)
+{
+	GitgAuthor *author = g_object_new(GITG_TYPE_AUTHOR,  NULL);
+	gitg_author_set_string(author, string);
+	return author;
+}
+
 void
 gitg_author_set_email(GitgAuthor *author, gchar const *email)
 {
@@ -152,4 +153,28 @@ gitg_author_get_name(GitgAuthor* author)
 {
 	g_return_val_if_fail(GITG_IS_AUTHOR (author), NULL);
 	return author->priv->name;
+}
+
+void
+gitg_author_set_string(GitgAuthor *author, const gchar *string)
+{
+	static GRegex *regex = NULL;
+	GMatchInfo    *match = NULL;
+	
+	g_free(author->priv->name);
+	author->priv->name = NULL;
+	g_free(author->priv->email);
+	author->priv->email = NULL;
+
+	if (G_UNLIKELY(!regex)) {
+		regex = g_regex_new("^\\s*([^<]+?)?\\s*(?:<([^>]+)>)?\\s*$",
+		                    G_REGEX_OPTIMIZE, 0, NULL);
+	}
+
+	if (g_regex_match(regex, string, 0, &match)) {
+		author->priv->name  = g_match_info_fetch(match, 1);
+		author->priv->email = g_match_info_fetch(match, 2);
+	}
+
+	g_match_info_free (match);
 }

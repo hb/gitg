@@ -48,12 +48,15 @@ struct _GitgAuthor
 };
 
 GType gitg_author_get_type (void) G_GNUC_CONST;
+GitgAuthor *gitg_author_new_from_string(const gchar *string);
 
 void gitg_author_set_email(GitgAuthor *author, gchar const *email);
 gchar const *gitg_author_get_email(GitgAuthor *author);
 
 void gitg_author_set_name(GitgAuthor *author, gchar const *name);
 gchar const *gitg_author_get_name(GitgAuthor *author);
+
+void gitg_author_set_string(GitgAuthor *priv, const gchar *string);
 
 G_END_DECLS
 
