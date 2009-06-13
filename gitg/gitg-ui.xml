@@ -893,6 +893,34 @@
                                     <property name="expand">false</property>
                                   </packing>
                                 </child>
+                                <child>
+                                  <object class="GtkHBox" id="hbox_commit">
+                                    <property name="visible">True</property>
+                                    <property name="spacing">3</property>
+                                    <child>
+                                      <object class="GtkLabel" id="label_commit_author">
+                                        <property name="visible">True</property>
+                                        <property name="label" translatable="yes">Author:</property>
+                                      </object>
+                                      <packing>
+                                        <property name="expand">false</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkEntry" id="entry_commit_author">
+                                        <property name="visible">True</property>
+                                        <property name="tooltip-text" translatable="yes">Format: Author's name &lt;author@email&gt;</property>
+                                      </object>
+                                      <packing>
+                                        <property name="expand">true</property>
+                                      </packing>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="pack-type">start</property>
+                                    <property name="expand">false</property>
+                                  </packing>
+                                </child>
                               </object>
                             </child>
                             <child type="tab">
