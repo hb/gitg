@@ -60,6 +60,10 @@ gchar**               gitg_command_get_arguments         (GitgCommand *command);
 void                  gitg_command_set_arguments         (GitgCommand *command, gchar** arguments);
 void                  gitg_command_set_argumentsv        (GitgCommand  *command, ...) G_GNUC_NULL_TERMINATED;
 void                  gitg_command_prepend_argument      (GitgCommand *command, const gchar* argument);
+gchar**               gitg_command_get_environment         (GitgCommand *command);
+void                  gitg_command_set_environment         (GitgCommand *command, gchar** environment);
+gboolean              gitg_command_get_inherit_environment (GitgCommand *command);
+void                  gitg_command_set_inherit_environment (GitgCommand *command, gboolean inherit);
 
 gboolean              gitg_command_spawn_async_with_pipes (GitgCommand *command, GPid *child_pid, gint *standard_input, gint *standard_output, gint *standard_error, GError **error);
 

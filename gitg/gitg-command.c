@@ -31,6 +31,7 @@ enum
 	PROP_WORKING_DIRECTORY,
 	PROP_ARGUMENTS,
 	PROP_ENVIRONMENT,
+	PROP_INHERIT_ENVIRONMENT,
 };
 
 struct _GitgCommandPrivate
@@ -38,6 +39,7 @@ struct _GitgCommandPrivate
 	gchar*   working_directory;
 	gchar**  arguments;
 	gchar**  environment;
+	gboolean inherit_environment;
 };
 
 static void
@@ -55,6 +57,9 @@ gitg_command_get_property (GObject    *object,
 		break;
 	case PROP_ENVIRONMENT:
 		g_value_set_boxed (value, g_strdupv(GITG_COMMAND (object)->priv->environment));
+		break;
+	case PROP_INHERIT_ENVIRONMENT:
+		g_value_set_boolean (value, GITG_COMMAND (object)->priv->inherit_environment);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -80,6 +85,9 @@ gitg_command_set_property (GObject      *object,
 	case PROP_ENVIRONMENT:
 		g_strfreev (priv->environment);
 		priv->environment = g_strdupv (g_value_get_boxed (value));
+		break;
+	case PROP_INHERIT_ENVIRONMENT:
+		priv->inherit_environment = g_value_get_boolean (value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -148,6 +156,19 @@ gitg_command_class_init (GitgCommandClass *klass)
 	                                                     G_PARAM_READWRITE));
 
 
+	/**
+	 * GitgCommand:inherit_environment:
+	 *
+	 * The "inherit_environment" property.
+	 */
+	g_object_class_install_property (object_class,
+	                                 PROP_INHERIT_ENVIRONMENT,
+	                                 g_param_spec_boolean ("inherit-environment",
+	                                                       "inherit",
+	                                                       "",
+	                                                       TRUE,
+	                                                       G_PARAM_READWRITE));
+
 	g_type_class_add_private(object_class, sizeof(GitgCommandPrivate));
 }
 
@@ -157,6 +178,7 @@ gitg_command_init (GitgCommand *command)
 	command->priv = G_TYPE_INSTANCE_GET_PRIVATE (command,
 	                                             GITG_TYPE_COMMAND,
 	                                             GitgCommandPrivate);
+	command->priv->inherit_environment = TRUE;
 }
 
 static gchar const **
@@ -337,6 +359,60 @@ gitg_command_prepend_argument (GitgCommand  *command,
 	g_object_notify (G_OBJECT (command), "arguments");
 }
 
+/**
+ * gitg_command_get_environment:
+ * @command: A #GitgCommand
+ *
+ * Return value: 
+ */
+gchar**
+gitg_command_get_environment (GitgCommand *command)
+{
+	g_return_val_if_fail (GITG_IS_COMMAND (command), NULL);
+	return GITG_COMMAND (command)->priv->environment;
+}
+
+/**
+ * gitg_command_set_environment:
+ * @command: A #GitgCommand
+ * @arguments: A #gpointer
+ */
+void
+gitg_command_set_environment (GitgCommand  *command,
+                              gchar       **environment)
+{
+	g_return_if_fail (GITG_IS_COMMAND (command));
+	g_strfreev (GITG_COMMAND (command)->priv->environment);
+	GITG_COMMAND (command)->priv->environment = g_strdupv (environment);
+	g_object_notify (G_OBJECT (command), "environment");
+}
+
+/**
+ * gitg_command_get_inherit_environment:
+ * @command: A #GitgCommand
+ *
+ * Return value: 
+ */
+gboolean
+gitg_command_get_inherit_environment (GitgCommand *command)
+{
+	g_return_val_if_fail (GITG_IS_COMMAND (command), TRUE);
+	return GITG_COMMAND (command)->priv->inherit_environment;
+}
+
+/**
+ * gitg_command_set_inherit_environment:
+ * @command: A #GitgCommand
+ * @arguments: A #gboolean
+ */
+void
+gitg_command_set_inherit_environment (GitgCommand *command,
+                                      gboolean     inherit)
+{
+	g_return_if_fail (GITG_IS_COMMAND (command));
+	GITG_COMMAND (command)->priv->inherit_environment = inherit;
+	g_object_notify (G_OBJECT (command), "inherit-environment");
+}
 
 /**
  * gitg_command_spawn_async_with_pipes:
@@ -354,9 +430,36 @@ gitg_command_spawn_async_with_pipes (GitgCommand *command,
 	gchar *wd = GITG_COMMAND (command)->priv->working_directory;
 	gchar **argv = GITG_COMMAND (command)->priv->arguments;
 	gchar **env = GITG_COMMAND (command)->priv->environment;
+	gchar **newenv = NULL;
 	
+	/* Compute env */
+	if (GITG_COMMAND (command)->priv->inherit_environment == TRUE)
+	{
+		if (env != NULL)
+		{
+			int i,j;
+			const gchar **current = g_listenv();
+			newenv = g_malloc0(sizeof(gchar*)*(g_strv_length(current)+g_strv_length(env)+1));
+			i=0;
+			for(j=0;current[j]!=NULL;j++)
+				newenv[i++] = g_strdup(current[j]);
+			for(j=0;env[j]!=NULL;j++)
+				newenv[i++] = g_strdup(env[j]);
+			env = newenv;
+		}
+	}
+	else
+	{
+		if (env == NULL)
+		{
+			newenv = g_malloc0(sizeof(gchar*));
+			env = newenv;
+		}
+	}
+
 	// TODO do we need to rename GITG_DEBUG_RUNNER?
 	gboolean ret = g_spawn_async_with_pipes(wd, argv, env, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD | (gitg_debug_enabled(GITG_DEBUG_RUNNER) ? 0 : G_SPAWN_STDERR_TO_DEV_NULL), NULL, NULL,
 																					child_pid, standard_input, standard_output, standard_error, error);
+	g_strfreev(newenv);
 	return ret;
 }
