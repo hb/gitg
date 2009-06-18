@@ -849,10 +849,11 @@ gitg_commit_revert(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk,
 	else
 	{
 		GitgRunner *runner = gitg_runner_new_synchronized(1000);
-		gchar const *argv[] = {"patch", "-p1", "-R", NULL};
+		GitgCommand *command = gitg_command_new_with_argumentsv("patch", "-p1", "-R", NULL);
+		gitg_command_set_working_directory(command, gitg_repository_get_path(commit->priv->repository));
+		ret = gitg_runner_run_command(runner, command, hunk, NULL); 
+		g_object_unref(command);
 		
-		ret = gitg_runner_run_with_arguments(runner, argv, gitg_repository_get_path(commit->priv->repository), hunk, NULL); 
-	
 		update_index_file(commit, file);
 		update_index_unstaged(commit, file);
 		

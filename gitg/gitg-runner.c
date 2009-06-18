@@ -591,28 +591,6 @@ gitg_runner_run_command(GitgRunner *runner, GitgCommand *command, gchar const *i
 }
 
 gboolean
-gitg_runner_run_with_arguments(GitgRunner *runner, gchar const **argv, gchar const *wd, gchar const *input, GError **error)
-{
-	GitgCommand *command = g_object_new (GITG_TYPE_COMMAND,
-																			 "arguments", argv,
-																			 "working-directory", wd,
-																			 NULL);
-	return gitg_runner_run_command(runner, command, input, error);
-}
-
-gboolean
-gitg_runner_run_working_directory(GitgRunner *runner, gchar const **argv, gchar const *wd, GError **error)
-{
-	return gitg_runner_run_with_arguments(runner, argv, wd, NULL, error);
-}
-
-gboolean
-gitg_runner_run(GitgRunner *runner, gchar const **argv, GError **error)
-{
-	return gitg_runner_run_working_directory(runner, argv, NULL, error);
-}
-
-gboolean
 gitg_runner_run_stream(GitgRunner *runner, GInputStream *stream, GError **error)
 {
 	return gitg_runner_run_streams(runner, stream, NULL, NULL, error);
