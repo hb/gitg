@@ -51,11 +51,15 @@ struct _GitgCommandClass
 
 GType        gitg_command_get_type (void);
 GitgCommand* gitg_command_new      (void);
+GitgCommand* gitg_command_new_with_arguments (const gchar **arguments);
+GitgCommand* gitg_command_new_with_argumentsv (const gchar *first, ...) G_GNUC_NULL_TERMINATED;
 
 G_CONST_RETURN gchar* gitg_command_get_working_directory (GitgCommand *command);
 void                  gitg_command_set_working_directory (GitgCommand *command, const gchar* working_directory);
 gchar**               gitg_command_get_arguments         (GitgCommand *command);
 void                  gitg_command_set_arguments         (GitgCommand *command, gchar** arguments);
+void                  gitg_command_set_argumentsv        (GitgCommand  *command, ...) G_GNUC_NULL_TERMINATED;
+void                  gitg_command_prepend_argument      (GitgCommand *command, const gchar* argument);
 
 gboolean              gitg_command_spawn_async_with_pipes (GitgCommand *command, GPid *child_pid, gint *standard_input, gint *standard_output, gint *standard_error, GError **error);
 

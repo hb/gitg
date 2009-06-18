@@ -18,6 +18,8 @@
  * Boston, MA  02110-1301  USA
  */
 
+#include <string.h> // memmove
+
 #include "gitg-command.h"
 #include "gitg-debug.h"
 
@@ -67,8 +69,8 @@ gitg_command_set_property (GObject      *object,
 		priv->working_directory = g_value_dup_string (value);
 		break;
 	case PROP_ARGUMENTS:
-			g_strfreev (priv->arguments);
-      priv->arguments = g_strdupv (g_value_get_boxed (value));
+		g_strfreev (priv->arguments);
+		priv->arguments = g_strdupv (g_value_get_boxed (value));
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -134,15 +136,81 @@ gitg_command_init (GitgCommand *command)
 	                                             GitgCommandPrivate);
 }
 
+static gchar const **
+parse_valist(va_list ap)
+{
+	gchar const *a;
+	gchar const **ret = NULL;
+	guint num = 0;
+	
+	while ((a = va_arg(ap, gchar const *)) != NULL)
+	{
+		ret = g_realloc(ret, sizeof(gchar const *) * (++num + 1));
+		ret[num - 1] = a;
+	}
+	
+	ret[num] = NULL;
+	return ret;
+}
+
+
 /**
  * gitg_command_new:
  *
- * Return value: 
+ * Return value: newly allocated #GitgCommand
  */
 GitgCommand*
 gitg_command_new (void)
 {
 	return g_object_new (GITG_TYPE_COMMAND, NULL);
+}
+
+/**
+ * gitg_command_new_with_arguments:
+ *
+ * Return value: newly allocated #GitgCommand
+ */
+GitgCommand*
+gitg_command_new_with_arguments (const gchar **arguments)
+{
+	return g_object_new (GITG_TYPE_COMMAND, "arguments", g_strdupv(arguments), NULL);
+}
+
+/**
+ * gitg_command_new_with_argumentsv:
+ * @first: a #gchar*
+ *
+ * Return value: newly allocated #GitgCommand
+ */
+GitgCommand*
+gitg_command_new_with_argumentsv (const gchar *first, ...)
+{
+	va_list ap;
+	va_start(ap, first);
+	gchar const *a;
+	gchar const **argv = NULL;
+	guint num = 0;
+
+	// First argument
+	argv = g_realloc(argv, sizeof(gchar const *) * (++num + 1));
+	argv[num - 1] = first;
+
+	// Next ones
+	while ((a = va_arg(ap, gchar const *)) != NULL)
+	{
+		argv = g_realloc(argv, sizeof(gchar const *) * (++num + 1));
+		argv[num - 1] = a;
+	}
+
+	// End
+	argv[num] = NULL;
+	va_end(ap);
+	
+	GitgCommand *ret = g_object_new (GITG_TYPE_COMMAND, "arguments", g_strdupv(argv), NULL);
+	
+	g_free(argv);
+	
+	return ret;
 }
 
 /**
@@ -200,6 +268,52 @@ gitg_command_set_arguments (GitgCommand  *command,
 	GITG_COMMAND (command)->priv->arguments = g_strdupv (arguments);
 	g_object_notify (G_OBJECT (command), "arguments");
 }
+
+/**
+ * gitg_command_set_argumentsv:
+ * @command: A #GitgCommand
+ * @arguments: A NULL terminated enumaration of string
+ */
+void
+gitg_command_set_argumentsv (GitgCommand  *command, ...)
+{
+	va_list ap;
+	va_start(ap, command);
+	gchar const **argv = parse_valist(ap);
+	va_end(ap);
+	
+	gitg_command_set_arguments(command, argv);
+	
+	g_free(argv);
+}
+
+/**
+ * gitg_command_prepend_argument:
+ * @command: A #GitgCommand
+ * @argument: A #gchar*
+ */
+void
+gitg_command_prepend_argument (GitgCommand  *command,
+                               const gchar  *argument)
+{
+	g_return_if_fail (GITG_IS_COMMAND (command));
+	
+		
+	guint num = g_strv_length(GITG_COMMAND (command)->priv->arguments);
+	guint i;
+	gchar **args = g_new0(gchar *, num + 2);
+	args[0] = g_strdup(argument);	
+	
+	g_memmove(args+1, GITG_COMMAND (command)->priv->arguments, sizeof(gchar*)*num);
+	
+	// ONLY FREE MAIN ARRAY
+	// Elements have been copied to args array.
+	g_free(GITG_COMMAND (command)->priv->arguments);
+  GITG_COMMAND (command)->priv->arguments = args;
+	
+	g_object_notify (G_OBJECT (command), "arguments");
+}
+
 
 /**
  * gitg_command_spawn_async_with_pipes:

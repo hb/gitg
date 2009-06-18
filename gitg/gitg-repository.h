@@ -26,6 +26,7 @@
 
 #include "gitg-revision.h"
 #include "gitg-runner.h"
+#include "gitg-command.h"
 #include "gitg-ref.h"
 
 G_BEGIN_DECLS
@@ -83,23 +84,17 @@ GitgRef *gitg_repository_get_current_ref(GitgRepository *repository);
 gchar *gitg_repository_relative(GitgRepository *repository, GFile *file);
 
 /* Running git commands */
-gboolean gitg_repository_run_command(GitgRepository *repository, GitgRunner *runner, gchar const **argv, GError **error);
-gboolean gitg_repository_run_commandv(GitgRepository *repository, GitgRunner *runner, GError **error, ...) G_GNUC_NULL_TERMINATED;
+gboolean gitg_repository_run_command(GitgRepository *repository, GitgRunner *runner, GitgCommand *command, GError **error);
 
-gboolean gitg_repository_run_command_with_input(GitgRepository *repository, GitgRunner *runner, gchar const **argv, gchar const *input, GError **error);
-gboolean gitg_repository_run_command_with_inputv(GitgRepository *repository, GitgRunner *runner, gchar const *input, GError **error, ...) G_GNUC_NULL_TERMINATED;
+gboolean gitg_repository_run_command_with_input(GitgRepository *repository, GitgRunner *runner, GitgCommand *command, gchar const *input, GError **error);
 
-gboolean gitg_repository_command_with_input(GitgRepository *repository, gchar const **argv, gchar const *input, GError **error);
-gboolean gitg_repository_command_with_inputv(GitgRepository *repository, gchar const *input, GError **error, ...) G_GNUC_NULL_TERMINATED;
+gboolean gitg_repository_command_with_input(GitgRepository *repository, GitgCommand *command, gchar const *input, GError **error);
 
-gboolean gitg_repository_command(GitgRepository *repository, gchar const **argv, GError **error);
-gboolean gitg_repository_commandv(GitgRepository *repository, GError **error, ...) G_GNUC_NULL_TERMINATED;
+gboolean gitg_repository_command(GitgRepository *repository, GitgCommand *command, GError **error);
 
-gchar **gitg_repository_command_with_output(GitgRepository *repository, gchar const **argv, GError **error);
-gchar **gitg_repository_command_with_outputv(GitgRepository *repository, GError **error, ...) G_GNUC_NULL_TERMINATED;
+gchar **gitg_repository_command_with_output(GitgRepository *repository, GitgCommand *command, GError **error);
 
-gchar **gitg_repository_command_with_input_and_output(GitgRepository *repository, gchar const **argv, gchar const *input, GError **error);
-gchar **gitg_repository_command_with_input_and_outputv(GitgRepository *repository, gchar const *input, GError **error, ...) G_GNUC_NULL_TERMINATED;
+gchar **gitg_repository_command_with_input_and_output(GitgRepository *repository, GitgCommand *command, gchar const *input, GError **error);
 
 gchar *gitg_repository_parse_ref(GitgRepository *repository, gchar const *ref);
 gchar *gitg_repository_parse_head(GitgRepository *repository);
