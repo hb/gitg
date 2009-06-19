@@ -227,8 +227,9 @@ on_selection_changed(GtkTreeSelection *selection, GitgRevisionTreeView *tree)
 		gtk_source_buffer_set_language(GTK_SOURCE_BUFFER(buffer), language);
 		
 		gchar *id = node_identity(tree, &iter);
-		gitg_repository_run_commandv(tree->priv->repository, tree->priv->content_runner, NULL, "show", id, NULL);
-		
+		GitgCommand *command = gitg_command_new_with_argumentsv("show", id, NULL);
+		gitg_repository_run_command(tree->priv->repository, tree->priv->content_runner, command, NULL);
+		g_object_unref(command);	
 		g_free(id);
 	}
 	
@@ -689,7 +690,9 @@ load_node(GitgRevisionTreeView *tree, GtkTreeIter *parent)
 	else
 		tree->priv->load_path = NULL;
 
-	gitg_repository_run_commandv(tree->priv->repository, tree->priv->loader, NULL, "show", id, NULL);
+	GitgCommand *command = gitg_command_new_with_argumentsv("show", id, NULL);
+	gitg_repository_run_command(tree->priv->repository, tree->priv->loader, command, NULL);
+	g_object_unref(command);
 	g_free(id);
 }
 
