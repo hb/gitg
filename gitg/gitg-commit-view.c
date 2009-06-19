@@ -28,6 +28,7 @@
 
 #include "gitg-commit-view.h"
 #include "gitg-commit.h"
+#include "gitg-author.h"
 #include "gitg-utils.h"
 #include "gitg-diff-view.h"
 
@@ -70,6 +71,7 @@ struct _GitgCommitViewPrivate
 	GtkSourceView *changes_view;
 	GtkTextView *comment_view;
 	GtkCheckButton *check_button_signed_off_by;
+	GtkEntry *entry_commit_author;
 	GtkLabel *label_current_branch;
 	
 	GtkHScale *hscale_context;
@@ -933,6 +935,7 @@ gitg_commit_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	self->priv->changes_view = GTK_SOURCE_VIEW(gtk_builder_get_object(builder, "source_view_changes"));
 	self->priv->comment_view = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_comment"));
 	self->priv->check_button_signed_off_by = GTK_CHECK_BUTTON(gtk_builder_get_object(builder, "check_button_signed_off_by"));
+	self->priv->entry_commit_author = GTK_ENTRY(gtk_builder_get_object(builder, "entry_commit_author"));
 	self->priv->label_current_branch = GTK_LABEL(gtk_builder_get_object(builder, "label_current_branch"));
 	
 	self->priv->hscale_context = GTK_HSCALE(gtk_builder_get_object(builder, "hscale_context"));
@@ -1445,10 +1448,14 @@ on_commit_clicked(GtkButton *button, GitgCommitView *view)
 	}
 	
 	gboolean signoff = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view->priv->check_button_signed_off_by));
+	GitgAuthor *author = NULL;
+	const gchar *author_string = gtk_entry_get_text(view->priv->entry_commit_author);
+	if (author_string[0] != '\0')
+		author = gitg_author_new_from_string(author_string);
 	
 	GError *error = NULL;
 	
-	if (!gitg_commit_commit(view->priv->commit, comment, signoff, &error))
+	if (!gitg_commit_commit(view->priv->commit, comment, signoff, author, &error))
 	{
 		if (error && error->domain == GITG_COMMIT_ERROR && error->code == GITG_COMMIT_ERROR_SIGNOFF)
 			show_error(view, _("Your user name or email could not be retrieved for use in the sign off message"));

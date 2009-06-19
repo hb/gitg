@@ -22,6 +22,7 @@
 
 #include "gitg-commit.h"
 #include "gitg-runner.h"
+#include "gitg-author.h"
 #include "gitg-utils.h"
 #include "gitg-changed-file.h"
 
@@ -736,7 +737,7 @@ get_signed_off_line(GitgCommit *commit)
 }
 
 static gboolean 
-commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolean signoff, gchar **ref, GError **error)
+commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolean signoff, GitgAuthor *author, gchar **ref, GError **error)
 {
 	gchar *fullcomment;
 	
@@ -762,7 +763,17 @@ commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolea
 	gchar *head = gitg_repository_parse_ref(commit->priv->repository, "HEAD");
 
 	GitgCommand *command = gitg_command_new_with_argumentsv("commit-tree", tree, head ? "-p" : NULL, head, NULL);
-		
+	
+	if (author != NULL)
+	{
+		gchar **envp = g_malloc(sizeof(gchar*)*3);
+		envp[0] = g_strdup_printf("GIT_AUTHOR_NAME=%s", gitg_author_get_name(author));
+		envp[1] = g_strdup_printf("GIT_AUTHOR_EMAIL=%s", gitg_author_get_email(author));
+		envp[2] = NULL;
+		gitg_command_set_environment(command, envp);
+		g_strfreev(envp);
+	}
+	
 	gchar **lines = gitg_repository_command_with_input_and_output(commit->priv->repository, command, fullcomment, error);
 
 	g_object_unref(command);
@@ -790,7 +801,7 @@ update_ref(GitgCommit *commit, gchar const *ref, gchar const *subject, GError **
 }
 
 gboolean
-gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, GError **error)
+gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, GitgAuthor *author, GError **error)
 {
 	g_return_val_if_fail(GITG_IS_COMMIT(commit), FALSE);
 	
@@ -799,7 +810,7 @@ gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, G
 		return FALSE;
 	
 	gchar *ref;
-	gboolean ret = commit_tree(commit, tree, comment, signoff, &ref, error);
+	gboolean ret = commit_tree(commit, tree, comment, signoff, author, &ref, error);
 	g_free(tree);
 	
 	if (!ret)

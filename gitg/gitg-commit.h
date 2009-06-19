@@ -26,6 +26,7 @@
 #include <glib-object.h>
 #include "gitg-repository.h"
 #include "gitg-changed-file.h"
+#include "gitg-author.h"
 
 G_BEGIN_DECLS
 
@@ -72,7 +73,7 @@ gboolean gitg_commit_stage(GitgCommit *commit, GitgChangedFile *file, gchar cons
 gboolean gitg_commit_unstage(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk, GError **error);
 
 gboolean gitg_commit_has_changes(GitgCommit *commit);
-gboolean gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, GError **error);
+gboolean gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, GitgAuthor *author, GError **error);
 
 gboolean gitg_commit_revert(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk, GError **error);
 gboolean gitg_commit_add_ignore(GitgCommit *commit, GitgChangedFile *file, GError **error);

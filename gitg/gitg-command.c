@@ -438,11 +438,13 @@ gitg_command_spawn_async_with_pipes (GitgCommand *command,
 		if (env != NULL)
 		{
 			int i,j;
-			const gchar **current = g_listenv();
+			gchar **current = g_listenv();
 			newenv = g_malloc0(sizeof(gchar*)*(g_strv_length(current)+g_strv_length(env)+1));
 			i=0;
 			for(j=0;current[j]!=NULL;j++)
 				newenv[i++] = g_strdup(current[j]);
+			g_strfreev(current);
+			current = NULL;
 			for(j=0;env[j]!=NULL;j++)
 				newenv[i++] = g_strdup(env[j]);
 			env = newenv;
