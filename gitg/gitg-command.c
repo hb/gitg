@@ -230,6 +230,7 @@ gitg_command_set_working_directory(GitgCommand  *command,
 {
 	g_return_if_fail(GITG_IS_COMMAND(command));
   
+	/* duplicate */
 	g_free(command->priv->working_directory);
 	command->priv->working_directory = g_strdup(working_directory);
   
@@ -261,8 +262,10 @@ gitg_command_set_arguments(GitgCommand  *command,
 {
 	g_return_if_fail(GITG_IS_COMMAND(command));
   
+	/* duplicate */
 	g_strfreev(command->priv->arguments);
 	command->priv->arguments = g_strdupv(arguments);
+  
 	g_object_notify(G_OBJECT(command), "arguments");
 }
 
@@ -299,15 +302,18 @@ gitg_command_prepend_argument(GitgCommand  *command,
 	
 	guint num = g_strv_length(command->priv->arguments);
 	guint i;
-	gchar **args = g_new0(gchar *, num + 2);
-	args[0] = g_strdup(argument);	
+  
+	/* Realloc array:
+     * - add an element (+1)
+     * - keep the NULL terminated scheme (+1)
+     */
+	command->priv->arguments = g_realloc(command->priv->arguments, sizeof(gchar *) * (num + 2));
 	
-	g_memmove(args+1, command->priv->arguments, sizeof(gchar*)*num);
-	
-	// ONLY FREE MAIN ARRAY
-	// Elements have been copied to args array.
-	g_free(command->priv->arguments);
-	command->priv->arguments = args;
+	/* Move elements to free the first index (also copy the NULL: +1) */
+	g_memmove(command->priv->arguments+1, command->priv->arguments, sizeof(gchar *) * (num + 1));
+  
+	/* Duplicate the new element */
+	command->priv->arguments[0] = g_strdup(argument);
 	
 	g_object_notify(G_OBJECT(command), "arguments");
 }
