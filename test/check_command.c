@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "gitg-command.h"
 #include "gitg-runner.h"
