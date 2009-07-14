@@ -213,7 +213,8 @@ G_CONST_RETURN gchar*
 gitg_command_get_working_directory (GitgCommand *command)
 {
 	g_return_val_if_fail (GITG_IS_COMMAND (command), NULL);
-	return GITG_COMMAND (command)->priv->working_directory;
+  
+	return command->priv->working_directory;
 }
 
 /**
@@ -226,8 +227,10 @@ gitg_command_set_working_directory (GitgCommand  *command,
                                     const gchar*  working_directory)
 {
 	g_return_if_fail (GITG_IS_COMMAND (command));
-	g_free (GITG_COMMAND (command)->priv->working_directory);
-	GITG_COMMAND (command)->priv->working_directory = g_strdup (working_directory);
+  
+	g_free (command->priv->working_directory);
+	command->priv->working_directory = g_strdup (working_directory);
+  
 	g_object_notify (G_OBJECT (command), "working_directory");
 }
 
@@ -241,7 +244,8 @@ gchar**
 gitg_command_get_arguments (GitgCommand *command)
 {
 	g_return_val_if_fail (GITG_IS_COMMAND (command), NULL);
-	return GITG_COMMAND (command)->priv->arguments;
+  
+	return command->priv->arguments;
 }
 
 /**
@@ -254,8 +258,9 @@ gitg_command_set_arguments (GitgCommand  *command,
                             gchar       **arguments)
 {
 	g_return_if_fail (GITG_IS_COMMAND (command));
-	g_strfreev (GITG_COMMAND (command)->priv->arguments);
-	GITG_COMMAND (command)->priv->arguments = g_strdupv (arguments);
+  
+	g_strfreev (command->priv->arguments);
+	command->priv->arguments = g_strdupv (arguments);
 	g_object_notify (G_OBJECT (command), "arguments");
 }
 
@@ -267,6 +272,8 @@ gitg_command_set_arguments (GitgCommand  *command,
 void
 gitg_command_set_argumentsv (GitgCommand  *command, ...)
 {
+	g_return_if_fail (GITG_IS_COMMAND (command));
+
 	va_list ap;
 	va_start(ap, command);
 	gchar const **argv = parse_valist(ap);
@@ -288,18 +295,17 @@ gitg_command_prepend_argument (GitgCommand  *command,
 {
 	g_return_if_fail (GITG_IS_COMMAND (command));
 	
-		
-	guint num = g_strv_length(GITG_COMMAND (command)->priv->arguments);
+	guint num = g_strv_length(command->priv->arguments);
 	guint i;
 	gchar **args = g_new0(gchar *, num + 2);
 	args[0] = g_strdup(argument);	
 	
-	g_memmove(args+1, GITG_COMMAND (command)->priv->arguments, sizeof(gchar*)*num);
+	g_memmove(args+1, command->priv->arguments, sizeof(gchar*)*num);
 	
 	// ONLY FREE MAIN ARRAY
 	// Elements have been copied to args array.
-	g_free(GITG_COMMAND (command)->priv->arguments);
-  GITG_COMMAND (command)->priv->arguments = args;
+	g_free(command->priv->arguments);
+	command->priv->arguments = args;
 	
 	g_object_notify (G_OBJECT (command), "arguments");
 }
@@ -318,8 +324,10 @@ gitg_command_spawn_async_with_pipes (GitgCommand *command,
                                      gint *standard_error,
                                      GError **error)
 {
-	gchar *wd = GITG_COMMAND (command)->priv->working_directory;
-	gchar **argv = GITG_COMMAND (command)->priv->arguments;
+	g_return_val_if_fail (GITG_IS_COMMAND (command), FALSE);
+  
+	gchar *wd = command->priv->working_directory;
+	gchar **argv = command->priv->arguments;
 	
 	// TODO do we need to rename GITG_DEBUG_RUNNER?
 	gboolean ret = g_spawn_async_with_pipes(wd, argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD | (gitg_debug_enabled(GITG_DEBUG_RUNNER) ? 0 : G_SPAWN_STDERR_TO_DEV_NULL), NULL, NULL,
