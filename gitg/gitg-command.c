@@ -107,8 +107,8 @@ gitg_command_class_init (GitgCommandClass *klass)
 	g_object_class_install_property (object_class,
 	                                 PROP_WORKING_DIRECTORY,
 	                                 g_param_spec_string ("working-directory",
-	                                                      "wd",
-	                                                      "",
+	                                                      "Working directory",
+	                                                      "The child's current working directory, or NULL to inherit parent's",
 	                                                      NULL,
 	                                                      G_PARAM_READWRITE));
 
@@ -120,10 +120,10 @@ gitg_command_class_init (GitgCommandClass *klass)
 	g_object_class_install_property (object_class,
 	                                 PROP_ARGUMENTS,
 	                                 g_param_spec_boxed ("arguments",
-	                                                     "args",
-	                                                     "",
-																											 G_TYPE_STRV,
-	                                                     G_PARAM_READWRITE));
+	                                                     "Arguments",
+	                                                     "The child's argument vector",
+	                                                     G_TYPE_STRV,
+	                                                     G_PARAM_CONSTRUCT|G_PARAM_READWRITE));
 
 	g_type_class_add_private(object_class, sizeof(GitgCommandPrivate));
 }
