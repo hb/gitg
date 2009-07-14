@@ -453,7 +453,7 @@ unstaged_selection_changed(GtkTreeSelection *selection, GitgCommitView *view)
 		gchar ct[10];
 		g_snprintf(ct, sizeof(ct), "-U%d", view->priv->context_size);
 		
-		GitgCommand *command = gitg_command_new_with_argumentsv("diff", ct, "--", path, NULL);
+		GitgCommand *command = gitg_command_newv("diff", ct, "--", path, NULL);
 		gitg_repository_run_command(view->priv->repository, view->priv->runner, command, NULL);
 		g_object_unref(command);
 		g_free(path);
@@ -504,7 +504,7 @@ staged_selection_changed(GtkTreeSelection *selection, GitgCommitView *view)
 			connect_update(view);
 
 			gchar *indexpath = g_strconcat(":0:", path, NULL);
-			GitgCommand *command = gitg_command_new_with_argumentsv("show", indexpath, NULL);
+			GitgCommand *command = gitg_command_newv("show", indexpath, NULL);
 			gitg_repository_run_command(view->priv->repository, view->priv->runner, command, NULL);
 			g_object_unref(command);
 			g_free(indexpath);
@@ -522,7 +522,7 @@ staged_selection_changed(GtkTreeSelection *selection, GitgCommitView *view)
 		gchar ct[10];
 		g_snprintf(ct, sizeof(ct), "-U%d", view->priv->context_size);
 
-		GitgCommand *command = gitg_command_new_with_argumentsv("diff-index", ct, "--cached", head, "--", path, NULL);
+		GitgCommand *command = gitg_command_newv("diff-index", ct, "--cached", head, "--", path, NULL);
 		gitg_repository_run_command(view->priv->repository, view->priv->runner, command, NULL);
 		g_object_unref(command);
 		g_free(head);

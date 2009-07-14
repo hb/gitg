@@ -543,7 +543,7 @@ on_diff_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *se
 		if (sign == 't')
 			cached == "--cached";
 
-		GitgCommand *command = gitg_command_new_with_argumentsv("diff-index", "--raw", "-M", "--abbrev=40", head, cached, NULL);
+		GitgCommand *command = gitg_command_newv("diff-index", "--raw", "-M", "--abbrev=40", head, cached, NULL);
 		gitg_repository_run_command(self->priv->repository, self->priv->diff_files_runner, command, NULL);
 		g_object_unref(command);
 		g_free(head);
@@ -551,7 +551,7 @@ on_diff_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *se
 	else
 	{
 		gchar *sha = gitg_revision_get_sha1(self->priv->revision);
-		GitgCommand *command = gitg_command_new_with_argumentsv("show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
+		GitgCommand *command = gitg_command_newv("show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
 		gitg_repository_run_command(self->priv->repository, self->priv->diff_files_runner, command, NULL);
 		g_object_unref(command);
 		g_free(sha);
@@ -715,18 +715,18 @@ update_diff(GitgRevisionView *self, GitgRepository *repository)
 	switch (sign)
 	{
 		case 't':
-			command = gitg_command_new_with_argumentsv("diff", "--cached", "-M", "--pretty=format:%s%n%n%b",
-			                                           "--encoding=UTF-8", NULL);
+			command = gitg_command_newv("diff", "--cached", "-M", "--pretty=format:%s%n%n%b",
+			                            "--encoding=UTF-8", NULL);
 		break;
 		case 'u':
-			command = gitg_command_new_with_argumentsv("diff", "-M", "--pretty=format:%s%n%n%b",
-			                                           "--encoding=UTF-8", NULL);
+			command = gitg_command_newv("diff", "-M", "--pretty=format:%s%n%n%b",
+			                            "--encoding=UTF-8", NULL);
 		break;
 		default:
 		{
 			gchar *hash = gitg_revision_get_sha1(self->priv->revision);
-			command = gitg_command_new_with_argumentsv("show", "-M", "--pretty=format:%s%n%n%b", 
-			                                           "--encoding=UTF-8", hash, NULL);
+			command = gitg_command_newv("show", "-M", "--pretty=format:%s%n%n%b", 
+			                            "--encoding=UTF-8", hash, NULL);
 			g_free(hash);
 		}
 		break;

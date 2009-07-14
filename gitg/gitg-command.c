@@ -156,34 +156,24 @@ parse_valist(va_list ap)
 
 /**
  * gitg_command_new:
+ * @arguments: a string vector
  *
  * Return value: newly allocated #GitgCommand
  */
 GitgCommand*
-gitg_command_new (void)
+gitg_command_new (const gchar **arguments)
 {
-	return g_object_new (GITG_TYPE_COMMAND, NULL);
+	return g_object_new (GITG_TYPE_COMMAND, "arguments", arguments, NULL);
 }
 
 /**
- * gitg_command_new_with_arguments:
- *
- * Return value: newly allocated #GitgCommand
- */
-GitgCommand*
-gitg_command_new_with_arguments (const gchar **arguments)
-{
-	return g_object_new (GITG_TYPE_COMMAND, "arguments", g_strdupv(arguments), NULL);
-}
-
-/**
- * gitg_command_new_with_argumentsv:
+ * gitg_command_newv:
  * @first: a #gchar*
  *
  * Return value: newly allocated #GitgCommand
  */
 GitgCommand*
-gitg_command_new_with_argumentsv (const gchar *first, ...)
+gitg_command_newv (const gchar *first, ...)
 {
 	va_list ap;
 	va_start(ap, first);

@@ -517,7 +517,7 @@ on_loader_end_loading(GitgRunner *object, gboolean cancelled, GitgRepository *re
 				cached = "--cached";
 			}
 			
-			GitgCommand *command = gitg_command_new_with_argumentsv("diff-index", "--quiet", head, cached, NULL);
+			GitgCommand *command = gitg_command_newv("diff-index", "--quiet", head, cached, NULL);
 			gitg_repository_run_command(repository, object, command, NULL);
 			g_object_unref(command);
 			g_free(head);
@@ -528,7 +528,7 @@ on_loader_end_loading(GitgRunner *object, gboolean cancelled, GitgRepository *re
 			{
 				add_dummy_commit(repository, FALSE);
 			}
-			GitgCommand *command = gitg_command_new_with_arguments((gchar const **)repository->priv->last_args);
+			GitgCommand *command = gitg_command_new((gchar const **)repository->priv->last_args);
 			gitg_repository_run_command(repository, object, command, NULL);
 			g_object_unref(command);
 
@@ -862,7 +862,7 @@ reload_revisions(GitgRepository *repository, GError **error)
 	
 	repository->priv->load_stage = LOAD_STAGE_STASH;
 
-	GitgCommand *command = gitg_command_new_with_argumentsv("log", "--pretty=format:%H\x01%an\x01%s\x01%at", "-g", "refs/stash", NULL);
+	GitgCommand *command = gitg_command_newv("log", "--pretty=format:%H\x01%an\x01%s\x01%at", "-g", "refs/stash", NULL);
 	gboolean ret = gitg_repository_run_command(repository, repository->priv->loader, command, error);
 	g_object_unref(command);
 	return ret;
@@ -910,7 +910,7 @@ load_current_ref(GitgRepository *self)
 {
 	gchar **out;
 	gchar *ret = NULL;
-	GitgCommand *command = gitg_command_new_with_argumentsv("show-branch", "--sha1-name", "--current", NULL);
+	GitgCommand *command = gitg_command_newv("show-branch", "--sha1-name", "--current", NULL);
 	out = gitg_repository_command_with_output(self, command, NULL);
 	g_object_unref(command);
 	
@@ -934,7 +934,7 @@ load_refs(GitgRepository *self)
 {
 	gchar *current = load_current_ref(self);
 	
-	GitgCommand *command = gitg_command_new_with_argumentsv("for-each-ref", "--format=%(refname) %(objectname) %(*objectname)", "refs", NULL);
+	GitgCommand *command = gitg_command_newv("for-each-ref", "--format=%(refname) %(objectname) %(*objectname)", "refs", NULL);
 	gchar **refs = gitg_repository_command_with_output(self, command, NULL);
 	g_object_unref(command);
 	gchar **buffer = refs;
@@ -1229,7 +1229,7 @@ gitg_repository_parse_ref(GitgRepository *repository, gchar const *ref)
 {
 	g_return_val_if_fail(GITG_IS_REPOSITORY(repository), NULL);
 	
-	GitgCommand *command = gitg_command_new_with_argumentsv("rev-parse", "--verify", ref, NULL);
+	GitgCommand *command = gitg_command_newv("rev-parse", "--verify", ref, NULL);
 	gchar **ret = gitg_repository_command_with_output(repository, command, NULL);
 	g_object_unref(command);
 	
