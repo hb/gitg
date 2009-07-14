@@ -357,9 +357,7 @@ read_unstaged_files_end(GitgRunner *runner, gboolean cancelled, GitgCommit *comm
 	gitg_runner_cancel(runner);
 
 	runner_connect(commit, G_CALLBACK(read_cached_files_update), G_CALLBACK(refresh_done));	
-	GitgCommand *command = gitg_command_newv("diff-index", "--cached", head, NULL);
-	gitg_repository_run_command(commit->priv->repository, commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository, commit->priv->runner, NULL, "diff-index", "--cached", head, NULL);
 	g_free(head);
 }
 
@@ -375,9 +373,7 @@ read_other_files_end(GitgRunner *runner, gboolean cancelled, GitgCommit *commit)
 	gitg_runner_cancel(runner);
 	
 	runner_connect(commit, G_CALLBACK(read_unstaged_files_update), G_CALLBACK(read_unstaged_files_end));
-	GitgCommand *command = gitg_command_newv("diff-files", NULL);
-	gitg_repository_run_command(commit->priv->repository,commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository,commit->priv->runner, NULL, "diff-files", NULL);
 }
 
 static void
@@ -429,18 +425,14 @@ update_index_end(GitgRunner *runner, gboolean cancelled, GitgCommit *commit)
 	gitg_runner_cancel(runner);
 	runner_connect(commit, G_CALLBACK(read_other_files_update), G_CALLBACK(read_other_files_end));
 	
-	GitgCommand *command = gitg_command_newv("ls-files", "--others", "--exclude-standard", NULL);
-	gitg_repository_run_command(commit->priv->repository, commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository, commit->priv->runner, NULL, "ls-files", "--others", "--exclude-standard", NULL);
 }
 
 static void
 update_index(GitgCommit *commit)
 {
 	runner_connect(commit, NULL, G_CALLBACK(update_index_end));
-	GitgCommand *command = gitg_command_newv("update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
-	gitg_repository_run_command(commit->priv->repository, commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository, commit->priv->runner, NULL, "update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
 }
 
 static void
@@ -536,9 +528,7 @@ update_index_file(GitgCommit *commit, GitgChangedFile *file)
 	gchar *path = gitg_repository_relative(commit->priv->repository, f);
 	g_object_unref(f);
 
-	GitgCommand *command = gitg_command_newv("update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
-	gitg_repository_command(commit->priv->repository, command, NULL);
-	g_object_unref(command);
+	gitg_repository_commandv(commit->priv->repository, NULL, "update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
 	
 	g_free(path);
 }
@@ -597,9 +587,7 @@ gitg_commit_stage(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk, 
 	gchar *path = gitg_repository_relative(commit->priv->repository, f);
 	g_object_unref(f);
 	
-	GitgCommand *command = gitg_command_newv("update-index", "--add", "--remove", "--", path, NULL);
-	gboolean ret = gitg_repository_command(commit->priv->repository, command, NULL);
-	g_object_unref(command);
+	gboolean ret = gitg_repository_commandv(commit->priv->repository, NULL, "update-index", "--add", "--remove", "--", path, NULL);
 	g_free(path);
 	
 	if (ret)
@@ -783,10 +771,7 @@ commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolea
 static gboolean
 update_ref(GitgCommit *commit, gchar const *ref, gchar const *subject, GError **error)
 {
-	GitgCommand *command = gitg_command_newv ("update-ref", "-m", subject, "HEAD", ref, NULL);
-	gboolean ret = gitg_repository_command(commit->priv->repository, command, error);
-	g_object_unref(command);
-	return ret;
+	return gitg_repository_commandv(commit->priv->repository, error, "update-ref", "-m", subject, "HEAD", ref, NULL);
 }
 
 gboolean

@@ -543,17 +543,15 @@ on_diff_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *se
 		if (sign == 't')
 			cached == "--cached";
 
-		GitgCommand *command = gitg_command_newv("diff-index", "--raw", "-M", "--abbrev=40", head, cached, NULL);
-		gitg_repository_run_command(self->priv->repository, self->priv->diff_files_runner, command, NULL);
-		g_object_unref(command);
+		gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
+									"diff-index", "--raw", "-M", "--abbrev=40", head, cached, NULL);
 		g_free(head);
 	}
 	else
 	{
 		gchar *sha = gitg_revision_get_sha1(self->priv->revision);
-		GitgCommand *command = gitg_command_newv("show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
-		gitg_repository_run_command(self->priv->repository, self->priv->diff_files_runner, command, NULL);
-		g_object_unref(command);
+		gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
+								 "show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
 		g_free(sha);
 	}
 }
@@ -711,30 +709,28 @@ update_diff(GitgRevisionView *self, GitgRepository *repository)
 
 	gchar sign = gitg_revision_get_sign(self->priv->revision);
 	
-	GitgCommand *command = NULL;
 	switch (sign)
 	{
 		case 't':
-			command = gitg_command_newv("diff", "--cached", "-M", "--pretty=format:%s%n%n%b",
-			                            "--encoding=UTF-8", NULL);
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										"diff", "--cached", "-M", "--pretty=format:%s%n%n%b",
+										"--encoding=UTF-8", NULL);
 		break;
 		case 'u':
-			command = gitg_command_newv("diff", "-M", "--pretty=format:%s%n%n%b",
-			                            "--encoding=UTF-8", NULL);
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										"diff", "-M", "--pretty=format:%s%n%n%b",
+										"--encoding=UTF-8", NULL);
 		break;
 		default:
 		{
 			gchar *hash = gitg_revision_get_sha1(self->priv->revision);
-			command = gitg_command_newv("show", "-M", "--pretty=format:%s%n%n%b", 
-			                            "--encoding=UTF-8", hash, NULL);
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										 "show", "-M", "--pretty=format:%s%n%n%b", 
+										 "--encoding=UTF-8", hash, NULL);
+
 			g_free(hash);
 		}
 		break;
-	}
-	if (command)
-	{
-		gitg_repository_run_command(self->priv->repository, self->priv->diff_runner, command, NULL);
-		g_object_unref(command);
 	}
 }
 

@@ -85,12 +85,14 @@ gchar *gitg_repository_relative(GitgRepository *repository, GFile *file);
 
 /* Running git commands */
 gboolean gitg_repository_run_command(GitgRepository *repository, GitgRunner *runner, GitgCommand *command, GError **error);
+gboolean gitg_repository_run_commandv(GitgRepository *repository, GitgRunner *runner, GError **error, ...) G_GNUC_NULL_TERMINATED;
 
 gboolean gitg_repository_run_command_with_input(GitgRepository *repository, GitgRunner *runner, GitgCommand *command, gchar const *input, GError **error);
 
 gboolean gitg_repository_command_with_input(GitgRepository *repository, GitgCommand *command, gchar const *input, GError **error);
 
 gboolean gitg_repository_command(GitgRepository *repository, GitgCommand *command, GError **error);
+gboolean gitg_repository_commandv(GitgRepository *repository, GError **error, ...) G_GNUC_NULL_TERMINATED;
 
 gchar **gitg_repository_command_with_output(GitgRepository *repository, GitgCommand *command, GError **error);
 
