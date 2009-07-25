@@ -27,6 +27,8 @@
 #include <sys/wait.h>
 #include "gitg-debug.h"
 #include "gitg-command.h"
+#include <errno.h>
+#include <stdlib.h>
 
 #include <gio/gio.h>
 #include <gio/gunixoutputstream.h>
@@ -65,6 +67,7 @@ struct _GitgRunnerPrivate
 	gchar *buffer;
 	gchar *read_buffer;
 	gchar **lines;
+	gchar **environment;
 	
 	gint exit_status;
 };
@@ -108,10 +111,13 @@ gitg_runner_error_quark()
 static void
 runner_io_exit(GPid pid, gint status, GitgRunner *runner)
 {
-	g_spawn_close_pid(pid);	
-	runner->priv->pid = 0;
+	g_spawn_close_pid(pid);
 	
-	runner->priv->exit_status = status;
+	if (runner->priv->pid)
+	{
+		runner->priv->pid = 0;
+		runner->priv->exit_status = status;
+	}
 }
 
 static void
@@ -142,6 +148,7 @@ gitg_runner_finalize(GObject *object)
 	
 	/* Remove line buffer */
 	g_free(runner->priv->buffer);
+	g_strfreev (runner->priv->environment);
 	
 	g_object_unref(runner->priv->cancellable);
 
@@ -303,7 +310,7 @@ static void
 parse_lines(GitgRunner *runner, gchar *buffer, gssize size)
 {
 	gchar *ptr = buffer;
-	gchar *newline;
+	gchar *newline = NULL;
 	gint i = 0;
 
 	free_lines(runner);
@@ -331,8 +338,6 @@ parse_lines(GitgRunner *runner, gchar *buffer, gssize size)
 		ptr += linesize + 1;
 	}
 	
-	runner->priv->lines[i] = NULL;
-
 	if (size)
 	{
 		gchar *tmp;
@@ -345,6 +350,8 @@ parse_lines(GitgRunner *runner, gchar *buffer, gssize size)
 		g_free(runner->priv->buffer);
 		runner->priv->buffer = tmp;
 	}
+	
+	runner->priv->lines[i] = NULL;
 
 	g_signal_emit(runner, runner_signals[UPDATE], 0, runner->priv->lines);
 }
@@ -403,8 +410,11 @@ run_sync(GitgRunner *runner, gchar const *input, GError **error)
 		runner->priv->read_buffer[read] = '\0';
 		parse_lines(runner, runner->priv->read_buffer, read);
 	}
+	
+	gchar *b[] = {runner->priv->buffer, NULL};
+	g_signal_emit(runner, runner_signals[UPDATE], 0, b);
 
-	gint status;
+	gint status = 0;
 	waitpid(runner->priv->pid, &status, 0);
 
 	runner_io_exit(runner->priv->pid, status, runner);
@@ -415,7 +425,7 @@ run_sync(GitgRunner *runner, gchar const *input, GError **error)
 	if (status != 0 && error)
 		g_set_error(error, GITG_RUNNER_ERROR, GITG_RUNNER_ERROR_EXIT, "Did not exit without error code");
 	
-	return status == 0;
+	return status == EXIT_SUCCESS;
 }
 
 static void
@@ -462,10 +472,11 @@ read_output_ready(GInputStream *stream, GAsyncResult *result, AsyncData *data)
 	{
 		/* End */
 		gchar *b[] = {data->runner->priv->buffer, NULL};
-		g_signal_emit(data->runner, runner_signals[UPDATE], 0, b);		
+		g_signal_emit(data->runner, runner_signals[UPDATE], 0, b);
 
-		gint status;
+		gint status = 0;
 		waitpid(data->runner->priv->pid, &status, 0);
+		
 		runner_io_exit(data->runner->priv->pid, status, data->runner);
 		close_streams(data->runner);
 
@@ -564,7 +575,12 @@ gitg_runner_run_command(GitgRunner *runner, GitgCommand *command, gchar const *i
 
 	gitg_runner_cancel(runner);
 
-	gboolean ret = gitg_command_spawn_async_with_pipes(command, &(runner->priv->pid), input ? &stdin : NULL, &stdout, NULL, error);
+	gboolean ret = gitg_command_spawn_async_with_pipes(command,
+	                                                   &(runner->priv->pid),
+	                                                   input ? &stdin : NULL,
+	                                                   &stdout,
+	                                                   NULL,
+	                                                   error);
 
 	if (!ret)
 	{
@@ -603,6 +619,11 @@ gitg_runner_get_buffer_size(GitgRunner *runner)
 	return runner->priv->buffer_size;
 }
 
+static void
+dummy_cb(GPid pid, gint status, gpointer data)
+{
+}
+
 void
 gitg_runner_cancel(GitgRunner *runner)
 {
@@ -614,9 +635,16 @@ gitg_runner_cancel(GitgRunner *runner)
 		g_object_unref(runner->priv->cancellable);
 		
 		runner->priv->cancellable = g_cancellable_new();
-		runner_io_exit(runner->priv->pid, 1, runner);
-		close_streams(runner);
 
+		if (runner->priv->pid)
+		{
+			g_child_watch_add(runner->priv->pid, dummy_cb, NULL);
+			kill(runner->priv->pid, SIGTERM);
+		
+			runner_io_exit(runner->priv->pid, EXIT_FAILURE, runner);
+		}
+		
+		close_streams(runner);
 		g_signal_emit(runner, runner_signals[END_LOADING], 0, TRUE);
 	}
 }
@@ -634,4 +662,62 @@ gitg_runner_get_exit_status(GitgRunner *runner)
 	g_return_val_if_fail(GITG_IS_RUNNER(runner), 1);
 	
 	return runner->priv->exit_status;
+}
+
+void
+gitg_runner_set_environment (GitgRunner *runner, gchar const **environment)
+{
+	g_return_if_fail (GITG_IS_RUNNER (runner));
+	
+	g_strfreev (runner->priv->environment);
+	
+	if (environment == NULL)
+	{
+		runner->priv->environment = NULL;
+	}
+	else
+	{
+		gint len = g_strv_length ((gchar **)environment);
+	
+		runner->priv->environment = g_new (gchar *, len + 1);
+		gint i;
+
+		for (i = 0; i < len; ++i)
+		{
+			runner->priv->environment[i] = g_strdup (environment[i]);
+		}
+	
+		runner->priv->environment[len] = NULL;
+	}
+}
+
+void
+gitg_runner_add_environment (GitgRunner *runner, gchar const *key, gchar const *value)
+{
+	g_return_if_fail (GITG_IS_RUNNER (runner));
+	g_return_if_fail (key != NULL);
+	g_return_if_fail (value != NULL);
+	
+	if (runner->priv->environment == NULL)
+	{
+		gchar **all = g_listenv ();
+		
+		gint i = 0;
+		runner->priv->environment = g_malloc (sizeof(gchar *) * (g_strv_length (all) + 1));
+
+		while (all && all[i])
+		{
+			runner->priv->environment[i] = g_strconcat (all[i], "=", g_getenv (all[i]), NULL);
+			++i;
+		}
+		
+		runner->priv->environment[i] = NULL;
+	}
+	
+	gint len = g_strv_length (runner->priv->environment);
+	runner->priv->environment = g_realloc (runner->priv->environment, 
+	                                       sizeof(gchar *) * (len + 2));
+
+	runner->priv->environment[len] = g_strconcat (key, "=", value, NULL);
+	runner->priv->environment[len + 1] = NULL;
 }

@@ -612,7 +612,7 @@ gitg_commit_unstage(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk
 	gchar *input = g_strdup_printf("%s %s\t%s\n", gitg_changed_file_get_mode(file), gitg_changed_file_get_sha(file), path);
 	GitgCommand *command = gitg_command_newv("update-index", "--index-info", NULL);
 	gboolean ret = gitg_repository_command_with_input(commit->priv->repository, command, input, error);
-  g_object_unref(command);
+	g_object_unref(command);
 	g_free(input);
 	
 	if (ret)
@@ -723,8 +723,70 @@ get_signed_off_line(GitgCommit *commit)
 	return ret;
 }
 
+static void
+on_commit_tree_update (GitgRunner *runner, gchar **lines, GString *buffer)
+{
+	while (lines && *lines)
+	{
+		if (buffer->len != 0)
+		{
+			g_string_append_c (buffer, '\n');
+		}
+		
+		g_string_append (buffer, *lines);
+		++lines;
+	}
+}
+
+static void
+set_amend_environment (GitgCommit *commit, GitgRunner *runner)
+{
+	gchar **out;
+	GitgCommand *command = gitg_command_newv ("cat-file",
+	                                          "commit",
+	                                          "HEAD",
+	                                          NULL);
+	out = gitg_repository_command_with_output (commit->priv->repository,
+	                                           command,
+	                                           NULL);
+	g_object_unref (command);
+
+	// Parse author
+	GRegex *r = g_regex_new ("^author (.*) <([^>]*)> ([0-9]+.*)$",
+	                         G_REGEX_CASELESS,
+	                         0,
+	                         NULL);
+
+	GMatchInfo *info = NULL;
+	gchar **ptr = out;
+	
+	while (ptr && *ptr)
+	{
+		if (g_regex_match (r, *ptr, 0, &info))
+		{
+			gchar *name = g_match_info_fetch (info, 1);
+			gchar *email = g_match_info_fetch (info, 2);
+			gchar *date = g_match_info_fetch (info, 3);
+
+			gitg_runner_add_environment (runner, "GIT_AUTHOR_NAME", name);
+			gitg_runner_add_environment (runner, "GIT_AUTHOR_EMAIL", email);
+			gitg_runner_add_environment (runner, "GIT_AUTHOR_DATE", date);
+			
+			g_free (name);
+			g_free (email);
+			g_free (date);
+		
+			break;
+		}
+		
+		++ptr;
+	}
+	
+	g_strfreev (out);
+}
+
 static gboolean 
-commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolean signoff, gchar **ref, GError **error)
+commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolean signoff, gboolean amend, gchar **ref, GError **error)
 {
 	gchar *fullcomment;
 	
@@ -747,24 +809,44 @@ commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolea
 		fullcomment = g_strdup(comment);
 	}
 	
-	gchar *head = gitg_repository_parse_ref(commit->priv->repository, "HEAD");
+	gchar *head;
+	
+	if (amend)
+	{
+		head = gitg_repository_parse_ref(commit->priv->repository, "HEAD^");
+	}
+	else
+	{
+		head = gitg_repository_parse_ref(commit->priv->repository, "HEAD");
+	}
+	GitgRunner *runner = gitg_runner_new_synchronized (1000);
+	GString *buffer = g_string_new ("");
+	
+	if (amend)
+	{
+		set_amend_environment (commit, runner);
+	}
 
 	GitgCommand *command = gitg_command_newv("commit-tree", tree, head ? "-p" : NULL, head, NULL);
-		
-	gchar **lines = gitg_repository_command_with_input_and_output(commit->priv->repository, command, fullcomment, error);
+	g_signal_connect (runner, "update", G_CALLBACK (on_commit_tree_update), buffer);
+	gitg_repository_run_command_with_input (commit->priv->repository,
+	                                        runner,
+	                                        command,
+	                                        fullcomment,
+	                                        error);
 
 	g_object_unref(command);
 	g_free(head);
 	g_free(fullcomment);
+	g_object_unref (runner);
 
-	if (!lines || strlen(*lines) != HASH_SHA_SIZE)
+	if (buffer->len != HASH_SHA_SIZE)
 	{
-		g_strfreev(lines);
+		g_string_free(buffer, TRUE);
 		return FALSE;
 	}
 	
-	*ref = g_strdup(*lines);
-	g_strfreev(lines);
+	*ref = g_string_free (buffer, FALSE);
 	return TRUE;
 }
 
@@ -775,16 +857,24 @@ update_ref(GitgCommit *commit, gchar const *ref, gchar const *subject, GError **
 }
 
 gboolean
-gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, GError **error)
+gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, gboolean amend, GError **error)
 {
 	g_return_val_if_fail(GITG_IS_COMMIT(commit), FALSE);
 	
 	gchar *tree;
+
 	if (!write_tree(commit, &tree, error))
 		return FALSE;
 	
+	gchar *path = g_build_filename (gitg_repository_get_path (commit->priv->repository),
+	                                ".git",
+	                                "COMMIT_EDITMSG",
+	                                NULL);
+	g_file_set_contents (path, comment, -1, NULL);\
+	g_free (path);
+	
 	gchar *ref;
-	gboolean ret = commit_tree(commit, tree, comment, signoff, &ref, error);
+	gboolean ret = commit_tree(commit, tree, comment, signoff, amend, &ref, error);
 	g_free(tree);
 	
 	if (!ret)
@@ -905,4 +995,59 @@ gitg_commit_find_changed_file(GitgCommit *commit, GFile *file)
 	{
 		return NULL;
 	}
+}
+
+gchar *
+gitg_commit_amend_message (GitgCommit *commit)
+{
+	g_return_val_if_fail (GITG_IS_COMMIT (commit), NULL);
+	
+	gchar **out;
+	GitgCommand *command = gitg_command_newv ("cat-file",
+	                                          "commit",
+	                                          "HEAD",
+	                                          NULL);
+	out = gitg_repository_command_with_output (commit->priv->repository,
+	                                           command,
+	                                           NULL);
+	g_object_unref (command);
+
+	gchar *ret = NULL;
+	
+	if (out)
+	{
+		gchar **ptr = out;
+		
+		while (*ptr)
+		{
+			if (!**ptr)
+			{
+				++ptr;
+				break;
+			}
+			
+			++ptr;
+		}
+		
+		if (*ptr && **ptr)
+		{
+			GString *buffer = g_string_new ("");
+			
+			while (*ptr)
+			{
+				if (buffer->len != 0)
+				{
+					g_string_append_c (buffer, '\n');
+				}
+				
+				g_string_append (buffer, *ptr);
+				++ptr;
+			}
+			
+			ret = g_string_free (buffer, FALSE);
+		}
+	}
+	
+	g_strfreev (out);
+	return ret;
 }
