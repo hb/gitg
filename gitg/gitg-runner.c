@@ -27,6 +27,8 @@
 #include <sys/wait.h>
 #include "gitg-debug.h"
 #include "gitg-command.h"
+#include <errno.h>
+#include <stdlib.h>
 
 #include <gio/gio.h>
 #include <gio/gunixoutputstream.h>
@@ -108,10 +110,13 @@ gitg_runner_error_quark()
 static void
 runner_io_exit(GPid pid, gint status, GitgRunner *runner)
 {
-	g_spawn_close_pid(pid);	
-	runner->priv->pid = 0;
+	g_spawn_close_pid(pid);
 	
-	runner->priv->exit_status = status;
+	if (runner->priv->pid)
+	{
+		runner->priv->pid = 0;
+		runner->priv->exit_status = status;
+	}
 }
 
 static void
@@ -303,7 +308,7 @@ static void
 parse_lines(GitgRunner *runner, gchar *buffer, gssize size)
 {
 	gchar *ptr = buffer;
-	gchar *newline;
+	gchar *newline = NULL;
 	gint i = 0;
 
 	free_lines(runner);
@@ -331,8 +336,6 @@ parse_lines(GitgRunner *runner, gchar *buffer, gssize size)
 		ptr += linesize + 1;
 	}
 	
-	runner->priv->lines[i] = NULL;
-
 	if (size)
 	{
 		gchar *tmp;
@@ -345,6 +348,8 @@ parse_lines(GitgRunner *runner, gchar *buffer, gssize size)
 		g_free(runner->priv->buffer);
 		runner->priv->buffer = tmp;
 	}
+	
+	runner->priv->lines[i] = NULL;
 
 	g_signal_emit(runner, runner_signals[UPDATE], 0, runner->priv->lines);
 }
@@ -403,8 +408,11 @@ run_sync(GitgRunner *runner, gchar const *input, GError **error)
 		runner->priv->read_buffer[read] = '\0';
 		parse_lines(runner, runner->priv->read_buffer, read);
 	}
+	
+	gchar *b[] = {runner->priv->buffer, NULL};
+	g_signal_emit(runner, runner_signals[UPDATE], 0, b);
 
-	gint status;
+	gint status = 0;
 	waitpid(runner->priv->pid, &status, 0);
 
 	runner_io_exit(runner->priv->pid, status, runner);
@@ -415,7 +423,7 @@ run_sync(GitgRunner *runner, gchar const *input, GError **error)
 	if (status != 0 && error)
 		g_set_error(error, GITG_RUNNER_ERROR, GITG_RUNNER_ERROR_EXIT, "Did not exit without error code");
 	
-	return status == 0;
+	return status == EXIT_SUCCESS;
 }
 
 static void
@@ -462,10 +470,11 @@ read_output_ready(GInputStream *stream, GAsyncResult *result, AsyncData *data)
 	{
 		/* End */
 		gchar *b[] = {data->runner->priv->buffer, NULL};
-		g_signal_emit(data->runner, runner_signals[UPDATE], 0, b);		
+		g_signal_emit(data->runner, runner_signals[UPDATE], 0, b);
 
-		gint status;
+		gint status = 0;
 		waitpid(data->runner->priv->pid, &status, 0);
+		
 		runner_io_exit(data->runner->priv->pid, status, data->runner);
 		close_streams(data->runner);
 
@@ -564,7 +573,12 @@ gitg_runner_run_command(GitgRunner *runner, GitgCommand *command, gchar const *i
 
 	gitg_runner_cancel(runner);
 
-	gboolean ret = gitg_command_spawn_async_with_pipes(command, &(runner->priv->pid), input ? &stdin : NULL, &stdout, NULL, error);
+	gboolean ret = gitg_command_spawn_async_with_pipes(command,
+	                                                   &(runner->priv->pid),
+	                                                   input ? &stdin : NULL,
+	                                                   &stdout,
+	                                                   NULL,
+	                                                   error);
 
 	if (!ret)
 	{
@@ -603,6 +617,11 @@ gitg_runner_get_buffer_size(GitgRunner *runner)
 	return runner->priv->buffer_size;
 }
 
+static void
+dummy_cb(GPid pid, gint status, gpointer data)
+{
+}
+
 void
 gitg_runner_cancel(GitgRunner *runner)
 {
@@ -614,9 +633,16 @@ gitg_runner_cancel(GitgRunner *runner)
 		g_object_unref(runner->priv->cancellable);
 		
 		runner->priv->cancellable = g_cancellable_new();
-		runner_io_exit(runner->priv->pid, 1, runner);
-		close_streams(runner);
 
+		if (runner->priv->pid)
+		{
+			g_child_watch_add(runner->priv->pid, dummy_cb, NULL);
+			kill(runner->priv->pid, SIGTERM);
+		
+			runner_io_exit(runner->priv->pid, EXIT_FAILURE, runner);
+		}
+		
+		close_streams(runner);
 		g_signal_emit(runner, runner_signals[END_LOADING], 0, TRUE);
 	}
 }

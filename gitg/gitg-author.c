@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 /*
  * gitg
- * Copyright (C)  2009 <>
+ * Copyright (C)  2009 Guilhem Bonnefille <guilhem.bonnefille@gmail.com>
  * 
  * gitg is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -51,13 +51,18 @@ gitg_author_init (GitgAuthor *author)
 static void
 gitg_author_finalize (GObject *object)
 {
-	/* TODO: Add deinitalization code here */
+	GitgAuthor *author = GITG_AUTHOR(object);
+	
+	g_free(author->priv->name);
+	author->priv->name = NULL;
+	g_free(author->priv->email);
+	author->priv->email = NULL;
 
 	G_OBJECT_CLASS (gitg_author_parent_class)->finalize (object);
 }
 
 static void
-gitg_author_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
+gitg_author_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
 	GitgAuthor *author = GITG_AUTHOR(object);
 
@@ -99,8 +104,8 @@ gitg_author_set_property (GObject *object, guint prop_id, const GValue *value, G
 static void
 gitg_author_class_init (GitgAuthorClass *klass)
 {
-	GObjectClass* object_class = G_OBJECT_CLASS (klass);
-	GObjectClass* parent_class = G_OBJECT_CLASS (klass);
+	GObjectClass *object_class = G_OBJECT_CLASS(klass);
+	GObjectClass *parent_class = G_OBJECT_CLASS(klass);
 
 	object_class->set_property = gitg_author_set_property;
 	object_class->get_property = gitg_author_get_property;
@@ -128,14 +133,14 @@ gitg_author_new_from_string (const gchar *string)
 }
 
 void
-gitg_author_set_email(GitgAuthor *author, gchar const *email)
+gitg_author_set_email (GitgAuthor *author, gchar const *email)
 {
 	g_return_if_fail (GITG_IS_AUTHOR (author));
 	g_object_set (author, "email", email, NULL);
 }
 
 const gchar *
-gitg_author_get_email(GitgAuthor* author)
+gitg_author_get_email (GitgAuthor* author)
 {
 	g_return_val_if_fail (GITG_IS_AUTHOR (author), NULL);
 	return author->priv->email;
@@ -149,15 +154,17 @@ gitg_author_set_name (GitgAuthor *author, gchar const *name)
 }
 
 const gchar *
-gitg_author_get_name(GitgAuthor* author)
+gitg_author_get_name (GitgAuthor* author)
 {
 	g_return_val_if_fail(GITG_IS_AUTHOR (author), NULL);
 	return author->priv->name;
 }
 
 void
-gitg_author_set_string(GitgAuthor *author, const gchar *string)
+gitg_author_set_string (GitgAuthor *author, const gchar *string)
 {
+	g_return_if_fail (GITG_IS_AUTHOR (author));
+	
 	static GRegex *regex = NULL;
 	GMatchInfo    *match = NULL;
 	
@@ -166,12 +173,14 @@ gitg_author_set_string(GitgAuthor *author, const gchar *string)
 	g_free(author->priv->email);
 	author->priv->email = NULL;
 
-	if (G_UNLIKELY(!regex)) {
+	if (G_UNLIKELY(!regex))
+	{
 		regex = g_regex_new("^\\s*([^<]+?)?\\s*(?:<([^>]+)>)?\\s*$",
 		                    G_REGEX_OPTIMIZE, 0, NULL);
 	}
 
-	if (g_regex_match(regex, string, 0, &match)) {
+	if (g_regex_match(regex, string, 0, &match))
+	{
 		author->priv->name  = g_match_info_fetch(match, 1);
 		author->priv->email = g_match_info_fetch(match, 2);
 	}

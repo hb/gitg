@@ -21,6 +21,7 @@ check_command_LDADD = $(PACKAGE_LIBS) \
 	../gitg/gitg-debug.o \
 	../gitg/gitg-utils.o \
 	../gitg/gitg-repository.o \
+	../gitg/gitg-config.o \
 	../gitg/gitg-revision.o \
 	../gitg/gitg-preferences.o \
 	../gitg/gitg-lane.o \

@@ -49,23 +49,26 @@ struct _GitgCommandClass
 	GObjectClass parent_class;
 };
 
-GType        gitg_command_get_type (void);
-GitgCommand* gitg_command_new      (void);
-GitgCommand* gitg_command_new_with_arguments (const gchar **arguments);
-GitgCommand* gitg_command_new_with_argumentsv (const gchar *first, ...) G_GNUC_NULL_TERMINATED;
+GType        gitg_command_get_type(void);
+GitgCommand *gitg_command_new(const gchar **arguments);
+GitgCommand *gitg_command_newv(const gchar *first, ...) G_GNUC_NULL_TERMINATED;
 
-G_CONST_RETURN gchar* gitg_command_get_working_directory (GitgCommand *command);
-void                  gitg_command_set_working_directory (GitgCommand *command, const gchar* working_directory);
-gchar**               gitg_command_get_arguments         (GitgCommand *command);
-void                  gitg_command_set_arguments         (GitgCommand *command, gchar** arguments);
-void                  gitg_command_set_argumentsv        (GitgCommand  *command, ...) G_GNUC_NULL_TERMINATED;
-void                  gitg_command_prepend_argument      (GitgCommand *command, const gchar* argument);
-gchar**               gitg_command_get_environment         (GitgCommand *command);
-void                  gitg_command_set_environment         (GitgCommand *command, gchar** environment);
-gboolean              gitg_command_get_inherit_environment (GitgCommand *command);
-void                  gitg_command_set_inherit_environment (GitgCommand *command, gboolean inherit);
+G_CONST_RETURN gchar *gitg_command_get_working_directory(GitgCommand *command);
+void gitg_command_set_working_directory(GitgCommand *command, const gchar* working_directory);
 
-gboolean              gitg_command_spawn_async_with_pipes (GitgCommand *command, GPid *child_pid, gint *standard_input, gint *standard_output, gint *standard_error, GError **error);
+gchar **gitg_command_get_arguments(GitgCommand *command);
+void gitg_command_set_arguments(GitgCommand *command, gchar** arguments);
+void gitg_command_set_argumentsv(GitgCommand  *command, ...) G_GNUC_NULL_TERMINATED;
+void gitg_command_prepend_argument(GitgCommand *command, const gchar* argument);
+
+gchar **gitg_command_get_environment(GitgCommand *command);
+void gitg_command_set_environment(GitgCommand *command, gchar** environment);
+void gitg_command_add_environment (GitgCommand *command, gchar const *key, gchar const *value);
+
+gboolean gitg_command_get_inherit_environment(GitgCommand *command);
+void gitg_command_set_inherit_environment(GitgCommand *command, gboolean inherit);
+
+gboolean gitg_command_spawn_async_with_pipes (GitgCommand *command, GPid *child_pid, gint *standard_input, gint *standard_output, gint *standard_error, GError **error);
 
 G_END_DECLS
 

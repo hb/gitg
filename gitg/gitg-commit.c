@@ -358,9 +358,7 @@ read_unstaged_files_end(GitgRunner *runner, gboolean cancelled, GitgCommit *comm
 	gitg_runner_cancel(runner);
 
 	runner_connect(commit, G_CALLBACK(read_cached_files_update), G_CALLBACK(refresh_done));	
-	GitgCommand *command = gitg_command_new_with_argumentsv("diff-index", "--cached", head, NULL);
-	gitg_repository_run_command(commit->priv->repository, commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository, commit->priv->runner, NULL, "diff-index", "--cached", head, NULL);
 	g_free(head);
 }
 
@@ -376,9 +374,7 @@ read_other_files_end(GitgRunner *runner, gboolean cancelled, GitgCommit *commit)
 	gitg_runner_cancel(runner);
 	
 	runner_connect(commit, G_CALLBACK(read_unstaged_files_update), G_CALLBACK(read_unstaged_files_end));
-	GitgCommand *command = gitg_command_new_with_argumentsv("diff-files", NULL);
-	gitg_repository_run_command(commit->priv->repository,commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository,commit->priv->runner, NULL, "diff-files", NULL);
 }
 
 static void
@@ -430,18 +426,14 @@ update_index_end(GitgRunner *runner, gboolean cancelled, GitgCommit *commit)
 	gitg_runner_cancel(runner);
 	runner_connect(commit, G_CALLBACK(read_other_files_update), G_CALLBACK(read_other_files_end));
 	
-	GitgCommand *command = gitg_command_new_with_argumentsv("ls-files", "--others", "--exclude-standard", NULL);
-	gitg_repository_run_command(commit->priv->repository, commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository, commit->priv->runner, NULL, "ls-files", "--others", "--exclude-standard", NULL);
 }
 
 static void
 update_index(GitgCommit *commit)
 {
 	runner_connect(commit, NULL, G_CALLBACK(update_index_end));
-	GitgCommand *command = gitg_command_new_with_argumentsv("update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
-	gitg_repository_run_command(commit->priv->repository, commit->priv->runner, command, NULL);
-	g_object_unref(command);
+	gitg_repository_run_commandv(commit->priv->repository, commit->priv->runner, NULL, "update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
 }
 
 static void
@@ -474,7 +466,7 @@ update_index_staged(GitgCommit *commit, GitgChangedFile *file)
 	gchar *path = gitg_repository_relative(commit->priv->repository, f);
 	gchar *head = gitg_repository_parse_head(commit->priv->repository);
 	
-	GitgCommand *command = gitg_command_new_with_argumentsv("diff-index", "--cached", head, "--", path, NULL);
+	GitgCommand *command = gitg_command_newv("diff-index", "--cached", head, "--", path, NULL);
 	gchar **ret = gitg_repository_command_with_output(commit->priv->repository, command, NULL);
 
 	g_object_unref(command);
@@ -510,7 +502,7 @@ update_index_unstaged(GitgCommit *commit, GitgChangedFile *file)
 {
 	GFile *f = gitg_changed_file_get_file(file);
 	gchar *path = gitg_repository_relative(commit->priv->repository, f);
-	GitgCommand *command = gitg_command_new_with_argumentsv("diff-files", "--", path, NULL);
+	GitgCommand *command = gitg_command_newv("diff-files", "--", path, NULL);
 	gchar **ret = gitg_repository_command_with_output(commit->priv->repository, command, NULL);
 	g_object_unref(command);
 	g_free(path);
@@ -537,9 +529,7 @@ update_index_file(GitgCommit *commit, GitgChangedFile *file)
 	gchar *path = gitg_repository_relative(commit->priv->repository, f);
 	g_object_unref(f);
 
-	GitgCommand *command = gitg_command_new_with_argumentsv("update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
-	gitg_repository_command(commit->priv->repository, command, NULL);
-	g_object_unref(command);
+	gitg_repository_commandv(commit->priv->repository, NULL, "update-index", "-q", "--unmerged", "--ignore-missing", "--refresh", NULL);
 	
 	g_free(path);
 }
@@ -577,7 +567,7 @@ apply_hunk(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk, gboolea
 	
 	g_return_val_if_fail(hunk != NULL, FALSE);
 	
-	GitgCommand *command = gitg_command_new_with_argumentsv("apply", "--cached", reverse ? "--reverse" : NULL, NULL);
+	GitgCommand *command = gitg_command_newv("apply", "--cached", reverse ? "--reverse" : NULL, NULL);
 	gboolean ret = gitg_repository_command_with_input(commit->priv->repository, command, hunk, error);
 	g_object_unref(command);
 	
@@ -598,9 +588,7 @@ gitg_commit_stage(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk, 
 	gchar *path = gitg_repository_relative(commit->priv->repository, f);
 	g_object_unref(f);
 	
-	GitgCommand *command = gitg_command_new_with_argumentsv("update-index", "--add", "--remove", "--", path, NULL);
-	gboolean ret = gitg_repository_command(commit->priv->repository, command, NULL);
-	g_object_unref(command);
+	gboolean ret = gitg_repository_commandv(commit->priv->repository, NULL, "update-index", "--add", "--remove", "--", path, NULL);
 	g_free(path);
 	
 	if (ret)
@@ -623,9 +611,9 @@ gitg_commit_unstage(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk
 	g_object_unref(f);
 
 	gchar *input = g_strdup_printf("%s %s\t%s\n", gitg_changed_file_get_mode(file), gitg_changed_file_get_sha(file), path);
-	GitgCommand *command = gitg_command_new_with_argumentsv("update-index", "--index-info", NULL);
+	GitgCommand *command = gitg_command_newv("update-index", "--index-info", NULL);
 	gboolean ret = gitg_repository_command_with_input(commit->priv->repository, command, input, error);
-  g_object_unref(command);
+	g_object_unref(command);
 	g_free(input);
 	
 	if (ret)
@@ -679,7 +667,7 @@ comment_parse_subject(gchar const *comment)
 static gboolean
 write_tree(GitgCommit *commit, gchar **tree, GError **error)
 {
-	GitgCommand *command = gitg_command_new_with_argumentsv("write-tree", NULL);
+	GitgCommand *command = gitg_command_newv("write-tree", NULL);
 	gchar **lines = gitg_repository_command_with_output(commit->priv->repository, command, error);
 	g_object_unref(command);
 	
@@ -698,7 +686,7 @@ write_tree(GitgCommit *commit, gchar **tree, GError **error)
 static gchar *
 get_signed_off_line(GitgCommit *commit)
 {
-	GitgCommand *command = gitg_command_new_with_argumentsv("config", "--get", "user.name", NULL);
+	GitgCommand *command = gitg_command_newv("config", "--get", "user.name", NULL);
 	gchar **user = gitg_repository_command_with_output(commit->priv->repository, command, NULL);
 	g_object_unref(command);
 	
@@ -711,7 +699,7 @@ get_signed_off_line(GitgCommit *commit)
 		return NULL;
 	}
 	
-	command = gitg_command_new_with_argumentsv("config", "--get", "user.email", NULL);
+	command = gitg_command_newv("config", "--get", "user.email", NULL);
 	gchar **email = gitg_repository_command_with_output(commit->priv->repository, command, NULL);
 	g_object_unref(command);
 	
@@ -736,8 +724,71 @@ get_signed_off_line(GitgCommit *commit)
 	return ret;
 }
 
+static void
+on_commit_tree_update (GitgRunner *runner, gchar **lines, GString *buffer)
+{
+	while (lines && *lines)
+	{
+		if (buffer->len != 0)
+		{
+			g_string_append_c (buffer, '\n');
+		}
+		
+		g_string_append (buffer, *lines);
+		++lines;
+	}
+}
+
+static void
+set_amend_environment (GitgCommit *commit, GitgCommand *command)
+{
+	gchar **out;
+	GitgCommand *cat_cmd = gitg_command_newv ("cat-file",
+	                                          "commit",
+	                                          "HEAD",
+	                                          NULL);
+	out = gitg_repository_command_with_output (commit->priv->repository,
+	                                           cat_cmd,
+	                                           NULL);
+	g_object_unref (cat_cmd);
+	cat_cmd = NULL;
+
+	// Parse author
+	GRegex *r = g_regex_new ("^author (.*) <([^>]*)> ([0-9]+.*)$",
+	                         G_REGEX_CASELESS,
+	                         0,
+	                         NULL);
+
+	GMatchInfo *info = NULL;
+	gchar **ptr = out;
+	
+	while (ptr && *ptr)
+	{
+		if (g_regex_match (r, *ptr, 0, &info))
+		{
+			gchar *name = g_match_info_fetch (info, 1);
+			gchar *email = g_match_info_fetch (info, 2);
+			gchar *date = g_match_info_fetch (info, 3);
+
+			gitg_command_add_environment (command, "GIT_AUTHOR_NAME", name);
+			gitg_command_add_environment (command, "GIT_AUTHOR_EMAIL", email);
+			gitg_command_add_environment (command, "GIT_AUTHOR_DATE", date);
+			
+			g_free (name);
+			g_free (email);
+			g_free (date);
+		
+			break;
+		}
+		
+		++ptr;
+	}
+	
+	g_strfreev (out);
+}
+
 static gboolean 
-commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolean signoff, GitgAuthor *author, gchar **ref, GError **error)
+commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolean signoff, gboolean amend, GitgAuthor *author, gchar **ref, GError **error)
 {
 	gchar *fullcomment;
 	
@@ -760,57 +811,79 @@ commit_tree(GitgCommit *commit, gchar const *tree, gchar const *comment, gboolea
 		fullcomment = g_strdup(comment);
 	}
 	
-	gchar *head = gitg_repository_parse_ref(commit->priv->repository, "HEAD");
+	gchar *head;
+	
+	if (amend)
+	{
+		head = gitg_repository_parse_ref(commit->priv->repository, "HEAD^");
+	}
+	else
+	{
+		head = gitg_repository_parse_ref(commit->priv->repository, "HEAD");
+	}
+	GitgRunner *runner = gitg_runner_new_synchronized (1000);
+	GString *buffer = g_string_new ("");
 
-	GitgCommand *command = gitg_command_new_with_argumentsv("commit-tree", tree, head ? "-p" : NULL, head, NULL);
+	GitgCommand *command = gitg_command_newv("commit-tree", tree, head ? "-p" : NULL, head, NULL);
+	
+	if (amend)
+	{
+		set_amend_environment (commit, command);
+	}
 	
 	if (author != NULL)
 	{
-		gchar **envp = g_malloc(sizeof(gchar*)*3);
-		envp[0] = g_strdup_printf("GIT_AUTHOR_NAME=%s", gitg_author_get_name(author));
-		envp[1] = g_strdup_printf("GIT_AUTHOR_EMAIL=%s", gitg_author_get_email(author));
-		envp[2] = NULL;
-		gitg_command_set_environment(command, envp);
-		g_strfreev(envp);
+		gitg_command_add_environment(command, "GIT_AUTHOR_NAME", gitg_author_get_name(author));
+		gitg_command_add_environment(command, "GIT_AUTHOR_EMAIL", gitg_author_get_email(author));
 	}
 	
-	gchar **lines = gitg_repository_command_with_input_and_output(commit->priv->repository, command, fullcomment, error);
+	g_signal_connect (runner, "update", G_CALLBACK (on_commit_tree_update), buffer);
+	gitg_repository_run_command_with_input (commit->priv->repository,
+	                                        runner,
+	                                        command,
+	                                        fullcomment,
+	                                        error);
 
 	g_object_unref(command);
 	g_free(head);
 	g_free(fullcomment);
+	g_object_unref (runner);
 
-	if (!lines || strlen(*lines) != HASH_SHA_SIZE)
+	if (buffer->len != HASH_SHA_SIZE)
 	{
-		g_strfreev(lines);
+		g_string_free(buffer, TRUE);
 		return FALSE;
 	}
 	
-	*ref = g_strdup(*lines);
-	g_strfreev(lines);
+	*ref = g_string_free (buffer, FALSE);
 	return TRUE;
 }
 
 static gboolean
 update_ref(GitgCommit *commit, gchar const *ref, gchar const *subject, GError **error)
 {
-	GitgCommand *command = gitg_command_new_with_argumentsv ("update-ref", "-m", subject, "HEAD", ref, NULL);
-	gboolean ret = gitg_repository_command(commit->priv->repository, command, error);
-	g_object_unref(command);
-	return ret;
+	return gitg_repository_commandv(commit->priv->repository, error, "update-ref", "-m", subject, "HEAD", ref, NULL);
 }
 
 gboolean
-gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, GitgAuthor *author, GError **error)
+gitg_commit_commit(GitgCommit *commit, gchar const *comment, gboolean signoff, gboolean amend, GitgAuthor *author, GError **error)
 {
 	g_return_val_if_fail(GITG_IS_COMMIT(commit), FALSE);
 	
 	gchar *tree;
+
 	if (!write_tree(commit, &tree, error))
 		return FALSE;
 	
+	gchar *path = g_build_filename (gitg_repository_get_path (commit->priv->repository),
+	                                ".git",
+	                                "COMMIT_EDITMSG",
+	                                NULL);
+	g_file_set_contents (path, comment, -1, NULL);\
+	g_free (path);
+	
 	gchar *ref;
-	gboolean ret = commit_tree(commit, tree, comment, signoff, author, &ref, error);
+	gboolean ret = commit_tree(commit, tree, comment, signoff, amend, author, &ref, error);
 	g_free(tree);
 	
 	if (!ret)
@@ -848,7 +921,7 @@ gitg_commit_revert(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk,
 		GFile *f = gitg_changed_file_get_file(file);
 		gchar *path = gitg_repository_relative(commit->priv->repository, f);
 	
-		GitgCommand *command = gitg_command_new_with_argumentsv("checkout-index", "--index", "--quiet", "--force", "--stdin", NULL);
+		GitgCommand *command = gitg_command_newv("checkout-index", "--index", "--quiet", "--force", "--stdin", NULL);
 		ret = gitg_repository_command_with_input(commit->priv->repository, command, path, error);
 		g_object_unref(command);
 		g_free(path);
@@ -860,7 +933,7 @@ gitg_commit_revert(GitgCommit *commit, GitgChangedFile *file, gchar const *hunk,
 	else
 	{
 		GitgRunner *runner = gitg_runner_new_synchronized(1000);
-		GitgCommand *command = gitg_command_new_with_argumentsv("patch", "-p1", "-R", NULL);
+		GitgCommand *command = gitg_command_newv("patch", "-p1", "-R", NULL);
 		gitg_command_set_working_directory(command, gitg_repository_get_path(commit->priv->repository));
 		ret = gitg_runner_run_command(runner, command, hunk, NULL); 
 		g_object_unref(command);
@@ -931,4 +1004,59 @@ gitg_commit_find_changed_file(GitgCommit *commit, GFile *file)
 	{
 		return NULL;
 	}
+}
+
+gchar *
+gitg_commit_amend_message (GitgCommit *commit)
+{
+	g_return_val_if_fail (GITG_IS_COMMIT (commit), NULL);
+	
+	gchar **out;
+	GitgCommand *command = gitg_command_newv ("cat-file",
+	                                          "commit",
+	                                          "HEAD",
+	                                          NULL);
+	out = gitg_repository_command_with_output (commit->priv->repository,
+	                                           command,
+	                                           NULL);
+	g_object_unref (command);
+
+	gchar *ret = NULL;
+	
+	if (out)
+	{
+		gchar **ptr = out;
+		
+		while (*ptr)
+		{
+			if (!**ptr)
+			{
+				++ptr;
+				break;
+			}
+			
+			++ptr;
+		}
+		
+		if (*ptr && **ptr)
+		{
+			GString *buffer = g_string_new ("");
+			
+			while (*ptr)
+			{
+				if (buffer->len != 0)
+				{
+					g_string_append_c (buffer, '\n');
+				}
+				
+				g_string_append (buffer, *ptr);
+				++ptr;
+			}
+			
+			ret = g_string_free (buffer, FALSE);
+		}
+	}
+	
+	g_strfreev (out);
+	return ret;
 }

@@ -31,6 +31,8 @@
 #include "gitg-author.h"
 #include "gitg-utils.h"
 #include "gitg-diff-view.h"
+#include "gitg-preferences.h"
+#include "gitg-data-binding.h"
 
 #define GITG_COMMIT_VIEW_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GITG_TYPE_COMMIT_VIEW, GitgCommitViewPrivate))
 #define CATEGORY_UNSTAGE_HUNK "CategoryUnstageHunk"
@@ -72,7 +74,7 @@ struct _GitgCommitViewPrivate
 	GtkTextView *comment_view;
 	GtkCheckButton *check_button_signed_off_by;
 	GtkEntry *entry_commit_author;
-	GtkLabel *label_current_branch;
+	GtkCheckButton *check_button_amend;
 	
 	GtkHScale *hscale_context;
 	gint context_size;
@@ -94,7 +96,7 @@ struct _GitgCommitViewPrivate
 
 static void gitg_commit_view_buildable_iface_init(GtkBuildableIface *iface);
 
-G_DEFINE_TYPE_EXTENDED(GitgCommitView, gitg_commit_view, GTK_TYPE_HPANED, 0,
+G_DEFINE_TYPE_EXTENDED(GitgCommitView, gitg_commit_view, GTK_TYPE_VPANED, 0,
 	G_IMPLEMENT_INTERFACE(GTK_TYPE_BUILDABLE, gitg_commit_view_buildable_iface_init));
 
 static GtkBuildableIface parent_iface;
@@ -124,6 +126,7 @@ static void on_revert_changes(GtkAction *action, GitgCommitView *view);
 static void on_ignore_file(GtkAction *action, GitgCommitView *view);
 static void on_unstage_changes(GtkAction *action, GitgCommitView *view);
 
+static void on_check_button_amend_toggled (GtkToggleButton *button, GitgCommitView *view);
 
 static void
 gitg_commit_view_finalize(GObject *object)
@@ -456,9 +459,7 @@ unstaged_selection_changed(GtkTreeSelection *selection, GitgCommitView *view)
 		gchar ct[10];
 		g_snprintf(ct, sizeof(ct), "-U%d", view->priv->context_size);
 		
-		GitgCommand *command = gitg_command_new_with_argumentsv("diff", ct, "--", path, NULL);
-		gitg_repository_run_command(view->priv->repository, view->priv->runner, command, NULL);
-		g_object_unref(command);
+		gitg_repository_run_commandv(view->priv->repository, view->priv->runner, NULL, "diff", ct, "--", path, NULL);
 		g_free(path);
 	}
 	
@@ -507,9 +508,7 @@ staged_selection_changed(GtkTreeSelection *selection, GitgCommitView *view)
 			connect_update(view);
 
 			gchar *indexpath = g_strconcat(":0:", path, NULL);
-			GitgCommand *command = gitg_command_new_with_argumentsv("show", indexpath, NULL);
-			gitg_repository_run_command(view->priv->repository, view->priv->runner, command, NULL);
-			g_object_unref(command);
+			gitg_repository_run_commandv(view->priv->repository, view->priv->runner, NULL, "show", indexpath, NULL);
 			g_free(indexpath);
 		}
 		
@@ -525,9 +524,7 @@ staged_selection_changed(GtkTreeSelection *selection, GitgCommitView *view)
 		gchar ct[10];
 		g_snprintf(ct, sizeof(ct), "-U%d", view->priv->context_size);
 
-		GitgCommand *command = gitg_command_new_with_argumentsv("diff-index", ct, "--cached", head, "--", path, NULL);
-		gitg_repository_run_command(view->priv->repository, view->priv->runner, command, NULL);
-		g_object_unref(command);
+		gitg_repository_run_commandv(view->priv->repository, view->priv->runner, NULL, "diff-index", ct, "--cached", head, "--", path, NULL);
 		g_free(head);
 	}
 
@@ -786,8 +783,6 @@ on_tree_view_drag_data_get (GtkWidget        *widget,
                             guint             time,
                             GitgCommitView   *view)
 {
-	GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
-	GtkTreeModel *model;
 	GList *selected;
 	GList *item;
 	gchar **uris;
@@ -827,7 +822,6 @@ on_tree_view_staged_drag_data_received(GtkWidget        *widget,
 	/* Stage all the files dropped on this */
 	gchar **uris = gtk_selection_data_get_uris(data);
 	gchar **uri;
-	GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
 
 	for (uri = uris; *uri; ++uri)
 	{
@@ -922,7 +916,18 @@ gitg_commit_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	/* Store widgets */
 	GitgCommitView *self = GITG_COMMIT_VIEW(buildable);
 	
-	self->priv->ui_manager = g_object_ref(gtk_builder_get_object(builder, "uiman"));
+	GtkBuilder *b = gitg_utils_new_builder("gitg-commit-menu.ui");
+	self->priv->ui_manager = g_object_ref(gtk_builder_get_object(b, "uiman"));
+
+	g_signal_connect(gtk_builder_get_object(b, "StageChangesAction"), "activate", G_CALLBACK(on_stage_changes), self);
+	g_signal_connect(gtk_builder_get_object(b, "RevertChangesAction"), "activate", G_CALLBACK(on_revert_changes), self);
+	g_signal_connect(gtk_builder_get_object(b, "IgnoreFileAction"), "activate", G_CALLBACK(on_ignore_file), self);
+	g_signal_connect(gtk_builder_get_object(b, "UnstageChangesAction"), "activate", G_CALLBACK(on_unstage_changes), self);
+
+	self->priv->group_context = GTK_ACTION_GROUP(gtk_builder_get_object(b, "action_group_commit_context"));
+	
+	g_object_unref(b);
+	
 	self->priv->tree_view_unstaged = GTK_TREE_VIEW(gtk_builder_get_object(builder, "tree_view_unstaged"));
 	self->priv->tree_view_staged = GTK_TREE_VIEW(gtk_builder_get_object(builder, "tree_view_staged"));
 	
@@ -936,10 +941,18 @@ gitg_commit_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	self->priv->comment_view = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_comment"));
 	self->priv->check_button_signed_off_by = GTK_CHECK_BUTTON(gtk_builder_get_object(builder, "check_button_signed_off_by"));
 	self->priv->entry_commit_author = GTK_ENTRY(gtk_builder_get_object(builder, "entry_commit_author"));
-	self->priv->label_current_branch = GTK_LABEL(gtk_builder_get_object(builder, "label_current_branch"));
+	self->priv->check_button_amend = GTK_CHECK_BUTTON(gtk_builder_get_object(builder, "check_button_amend"));
+	
+	GitgPreferences *preferences = gitg_preferences_get_default();
+	
+	gitg_data_binding_new(preferences, "message-show-right-margin",
+	                      self->priv->comment_view, "show-right-margin");
+
+	gitg_data_binding_new(preferences, "message-right-margin-at",
+	                      self->priv->comment_view, "right-margin-position");
 	
 	self->priv->hscale_context = GTK_HSCALE(gtk_builder_get_object(builder, "hscale_context"));
-	self->priv->group_context = GTK_ACTION_GROUP(gtk_builder_get_object(builder, "action_group_commit_context"));
+	gtk_range_set_value (GTK_RANGE (self->priv->hscale_context), 3);
 	
 	initialize_dnd_staged(self);
 	initialize_dnd_unstaged(self);
@@ -998,19 +1011,10 @@ gitg_commit_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	
 	g_signal_connect(self->priv->hscale_context, "value-changed", G_CALLBACK(on_context_value_changed), self);
 	
-	g_signal_connect(gtk_builder_get_object(builder, "StageChangesAction"), "activate", G_CALLBACK(on_stage_changes), self);
-	g_signal_connect(gtk_builder_get_object(builder, "RevertChangesAction"), "activate", G_CALLBACK(on_revert_changes), self);
-	g_signal_connect(gtk_builder_get_object(builder, "IgnoreFileAction"), "activate", G_CALLBACK(on_ignore_file), self);
-	g_signal_connect(gtk_builder_get_object(builder, "UnstageChangesAction"), "activate", G_CALLBACK(on_unstage_changes), self);
-
-	/* Update look & feel */
-	GtkLabel *current_branch_lbl = GTK_LABEL(gtk_builder_get_object(builder, "label_current_branch_lbl"));
-	gchar *s = g_markup_escape_text(gtk_label_get_text(current_branch_lbl), -1);
-	gchar *s_markup = g_markup_printf_escaped ("<span weight=\"bold\">%s</span>", s);
-	g_free(s);
-	gtk_label_set_markup(current_branch_lbl, s_markup);
-	g_free(s_markup);
-
+	g_signal_connect (self->priv->check_button_amend,
+	                  "toggled",
+	                  G_CALLBACK (on_check_button_amend_toggled),
+	                  self);
 }
 
 static void
@@ -1105,14 +1109,6 @@ gitg_commit_view_map(GtkWidget *widget)
 		return;
 	
 	initialize_commit(self);
-  
-  // FIXME update on other event
-  GitgRef *ref = gitg_repository_get_current_ref(self->priv->repository);
-  if (ref)
-  {
-    g_debug("Current branch: %s", ref->shortname);
-    gtk_label_set_text(self->priv->label_current_branch, ref->shortname);
-  }
 }
 
 static void
@@ -1448,6 +1444,7 @@ on_commit_clicked(GtkButton *button, GitgCommitView *view)
 	}
 	
 	gboolean signoff = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view->priv->check_button_signed_off_by));
+
 	GitgAuthor *author = NULL;
 	const gchar *author_string = gtk_entry_get_text(view->priv->entry_commit_author);
 	if (author_string[0] != '\0')
@@ -1455,7 +1452,9 @@ on_commit_clicked(GtkButton *button, GitgCommitView *view)
 	
 	GError *error = NULL;
 	
-	if (!gitg_commit_commit(view->priv->commit, comment, signoff, author, &error))
+	gboolean amend = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (view->priv->check_button_amend));
+	
+	if (!gitg_commit_commit(view->priv->commit, comment, signoff, amend, author, &error))
 	{
 		if (error && error->domain == GITG_COMMIT_ERROR && error->code == GITG_COMMIT_ERROR_SIGNOFF)
 			show_error(view, _("Your user name or email could not be retrieved for use in the sign off message"));
@@ -1468,6 +1467,8 @@ on_commit_clicked(GtkButton *button, GitgCommitView *view)
 	else
 	{
 		gtk_text_buffer_set_text(gtk_text_view_get_buffer(view->priv->comment_view), "", -1);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (view->priv->check_button_amend), FALSE);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (view->priv->check_button_signed_off_by), FALSE);
 	}
 	
 	g_free(comment);
@@ -1698,5 +1699,29 @@ on_changes_view_popup_menu(GtkTextView *textview, GtkMenu *menu, GitgCommitView 
 		
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), stage);
 		gtk_menu_shell_append(GTK_MENU_SHELL(menu), revert);
+	}
+}
+
+static void
+on_check_button_amend_toggled (GtkToggleButton *button, GitgCommitView *view)
+{
+	gboolean active = gtk_toggle_button_get_active (button);
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view->priv->comment_view);
+	GtkTextIter start;
+	GtkTextIter end;
+	
+	gtk_text_buffer_get_bounds (buffer, &start, &end);
+	
+	if (active && gtk_text_iter_compare (&start, &end) == 0)
+	{
+		// Get last commit message
+		gchar *message = gitg_commit_amend_message (view->priv->commit);
+		
+		if (message)
+		{
+			gtk_text_buffer_set_text (buffer, message, -1);
+		}
+		
+		g_free (message);
 	}
 }

@@ -499,19 +499,27 @@ on_diff_files_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 		if (**line == '\0')
 			continue;
 		
-		gchar **parts = g_strsplit(*line, " ", 5);
+		// Count parents
+		gint parents = 0;
+		gchar *ptr = *line;
 		
-		if (g_strv_length(parts) == 5)
+		while (*(ptr++) == ':')
+			++parents;
+		
+		gint numparts = 3 + 2 * parents;
+		gchar **parts = g_strsplit(ptr, " ", numparts);
+		
+		if (g_strv_length(parts) == numparts)
 		{
-			gchar **files = g_strsplit(parts[4], "\t", -1);
-			DiffFile *f = diff_file_new(parts[2], parts[3], files[0], files[1]);
+			gchar **files = g_strsplit(parts[numparts - 1], "\t", -1);
+
+			DiffFile *f = diff_file_new(parts[parents + 1], parts[numparts - 2], files[0], files[1]);
 			
 			add_diff_file(self, f);
 			diff_file_unref(f);
 
 			g_strfreev(files);
 		}
-		else
 
 		g_strfreev(parts);
 	}
@@ -541,19 +549,17 @@ on_diff_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *se
 		const gchar *cached = NULL;
 		
 		if (sign == 't')
-			cached == "--cached";
+			cached = "--cached";
 
-		GitgCommand *command = gitg_command_new_with_argumentsv("diff-index", "--raw", "-M", "--abbrev=40", head, cached, NULL);
-		gitg_repository_run_command(self->priv->repository, self->priv->diff_files_runner, command, NULL);
-		g_object_unref(command);
+		gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
+									"diff-index", "--raw", "-M", "--abbrev=40", head, cached, NULL);
 		g_free(head);
 	}
 	else
 	{
 		gchar *sha = gitg_revision_get_sha1(self->priv->revision);
-		GitgCommand *command = gitg_command_new_with_argumentsv("show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
-		gitg_repository_run_command(self->priv->repository, self->priv->diff_files_runner, command, NULL);
-		g_object_unref(command);
+		gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
+								 "show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
 		g_free(sha);
 	}
 }
@@ -693,7 +699,9 @@ update_parents(GitgRevisionView *self, GitgRevision *revision)
 
 static void
 update_diff(GitgRevisionView *self, GitgRepository *repository)
-{	
+{
+	GtkTreeSelection *selection;
+	
 	// First cancel a possibly still running diff
 	gitg_runner_cancel(self->priv->diff_runner);
 	gitg_runner_cancel(self->priv->diff_files_runner);
@@ -704,37 +712,44 @@ update_diff(GitgRevisionView *self, GitgRepository *repository)
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->diff));
 	gtk_text_buffer_set_text(buffer, "", 0);
 	
+	selection = gtk_tree_view_get_selection(self->priv->diff_files);
+	g_signal_handlers_block_by_func(selection,
+	                                G_CALLBACK(on_diff_files_selection_changed),
+	                                self);
+
 	gtk_list_store_clear(self->priv->list_store_diff_files);
+	
+	g_signal_handlers_unblock_by_func(selection,
+	                                  G_CALLBACK(on_diff_files_selection_changed),
+	                                  self);
 	
 	if (!self->priv->revision)
 		return;
 
 	gchar sign = gitg_revision_get_sign(self->priv->revision);
 	
-	GitgCommand *command = NULL;
 	switch (sign)
 	{
 		case 't':
-			command = gitg_command_new_with_argumentsv("diff", "--cached", "-M", "--pretty=format:%s%n%n%b",
-			                                           "--encoding=UTF-8", NULL);
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										"diff", "--cached", "-M", "--pretty=format:%s%n%n%b",
+										"--encoding=UTF-8", NULL);
 		break;
 		case 'u':
-			command = gitg_command_new_with_argumentsv("diff", "-M", "--pretty=format:%s%n%n%b",
-			                                           "--encoding=UTF-8", NULL);
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										"diff", "-M", "--pretty=format:%s%n%n%b",
+										"--encoding=UTF-8", NULL);
 		break;
 		default:
 		{
 			gchar *hash = gitg_revision_get_sha1(self->priv->revision);
-			command = gitg_command_new_with_argumentsv("show", "-M", "--pretty=format:%s%n%n%b", 
-			                                           "--encoding=UTF-8", hash, NULL);
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										 "show", "-M", "--pretty=format:%s%n%n%b", 
+										 "--encoding=UTF-8", hash, NULL);
+
 			g_free(hash);
 		}
 		break;
-	}
-	if (command)
-	{
-		gitg_repository_run_command(self->priv->repository, self->priv->diff_runner, command, NULL);
-		g_object_unref(command);
 	}
 }
 

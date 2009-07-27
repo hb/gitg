@@ -36,6 +36,8 @@ void test_env(gboolean setenv, gboolean inherit)
 		gitg_command_set_environment(command, env);
 	if (inherit)
 		gitg_command_set_inherit_environment(command, TRUE);
+	else
+		gitg_command_set_inherit_environment(command, FALSE);
 	GitgRunner *runner = gitg_runner_new_synchronized(255);
 	g_signal_connect(runner, "update", updatefunc, NULL);
 	g_signal_connect(runner, "end-loading", end_loading, NULL);
