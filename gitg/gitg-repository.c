@@ -1106,7 +1106,7 @@ load_refs(GitgRepository *self)
 	gchar *buf;
 	gchar *current = load_current_ref(self);
 	
-	while ((buf = *buffer++) != NULL)
+	while (buffer != NULL && (buf = *buffer++) != NULL)
 	{
 		// each line will look like <name> <hash>
 		gchar **components = g_strsplit(buf, " ", 3);
