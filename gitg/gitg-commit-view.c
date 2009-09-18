@@ -1471,9 +1471,12 @@ on_commit_clicked(GtkButton *button, GitgCommitView *view)
 	}
 	else
 	{
+		/* Reset UI */
 		gtk_text_buffer_set_text(gtk_text_view_get_buffer(view->priv->comment_view), "", -1);
 		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (view->priv->check_button_amend), FALSE);
 		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (view->priv->check_button_signed_off_by), FALSE);
+		gtk_entry_set_text(view->priv->entry_commit_author, "");
+
 	}
 	
 	g_free(comment);
