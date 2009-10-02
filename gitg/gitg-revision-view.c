@@ -628,6 +628,7 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 {
 	GtkClipboard *cb;
 	GtkTextBuffer *tb;
+	char sign = ' ';
 
 	g_return_if_fail(GITG_IS_REVISION_VIEW(self));
 
@@ -635,6 +636,8 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 
 	// Update labels
 	if (revision)
+		sign = gitg_revision_get_sign(revision);
+	if (revision && sign != 't' && sign != 'u')
 	{
 		gchar *s = g_markup_escape_text(gitg_revision_get_subject(revision), -1);
 		gtk_text_buffer_set_text(tb, s, -1);
