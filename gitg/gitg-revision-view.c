@@ -59,12 +59,12 @@ struct _GitgRevisionViewPrivate
 {
 	GtkLabel *sha;
 	GtkLabel *author;
-  GtkLabel *committer;
+	GtkLabel *committer;
 	GtkLabel *date;
 	GtkTable *parents;
 	GtkTextView *log;
   
-  GitgRunner *log_runner;
+	GitgRunner *log_runner;
   
 	GitgRepository *repository;
 	GitgRevision *revision;
@@ -391,7 +391,9 @@ gitg_revision_view_class_init(GitgRevisionViewClass *klass)
 static gboolean
 match_indices(DiffFile *f, gchar const *from, gchar const *to)
 {
-	return g_str_has_prefix(f->index_from, from) && g_str_has_prefix(f->index_to, to);
+	return g_str_has_prefix(f->index_from, from) && 
+	       (g_str_has_prefix(f->index_to, to) ||
+	        g_str_has_prefix(f->index_to, "0000000"));
 }
 
 static void
@@ -404,11 +406,14 @@ visible_from_cached_headers(GitgRevisionView *view, DiffFile *f)
 		CachedHeader *header = (CachedHeader *)item->data;
 		gchar *from;
 		gchar *to;
+		
+		gitg_diff_iter_get_index(&header->iter, &from, &to);
 
 		if (gitg_diff_iter_get_index(&header->iter, &from, &to) && match_indices(f, from, to))
 		{
 			f->visible = TRUE;
 			f->iter = header->iter;
+			
 			return;
 		}
 	}
@@ -418,7 +423,8 @@ static void
 on_log_begin_loading(GitgRunner *runner, GitgRevisionView *self)
 {
 	GdkWindow *window = GTK_WIDGET(self->priv->log)->window;
-	if (window != NULL) {
+	if (window != NULL)
+	{
 		GdkCursor *cursor = gdk_cursor_new(GDK_WATCH);
 		gdk_window_set_cursor(window, cursor);
 		gdk_cursor_unref(cursor);
@@ -429,7 +435,8 @@ static void
 on_log_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *self)
 {
 	GdkWindow *window = GTK_WIDGET(self->priv->log)->window;
-	if (window != NULL) {
+	if (window != NULL)
+	{
 		gdk_window_set_cursor(window, NULL);
 	}
 }
@@ -445,33 +452,33 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 	
 	while ((line = *buffer++))
 	{
-    if (line[0] == '\0')
-    {
-      /* Blank line */
-      if (gtk_text_iter_is_start(&iter))
-        /* Ignore the first blank line */
-        line = NULL;
-    }
-    else if (line[0] == ' ')
-    {
-      line = g_strchug (line);
-    }
-    else
-    {
+		if (line[0] == '\0')
+		{
+		  /* Blank line */
+		  if (gtk_text_iter_is_start(&iter))
+			/* Ignore the first blank line */
+			line = NULL;
+		}
+		else if (line[0] == ' ')
+		{
+		  line = g_strchug (line);
+		}
+		else
+		{
 #define AUTHOR_KEY "Author: "
 #define COMMITTER_KEY "Commit: "
-      if (g_str_has_prefix(line, AUTHOR_KEY))
-     	  gtk_label_set_text(self->priv->author, line+strlen(AUTHOR_KEY));
-      else if (g_str_has_prefix(line, COMMITTER_KEY))
-     	  gtk_label_set_text(self->priv->committer, line+strlen(COMMITTER_KEY));
-      /* We keep only empty lines and lines with whitespace at begining */
-      line = NULL;
-    }
-    if (line != NULL)
-    {
-  		gtk_text_buffer_insert(buf, &iter, line, -1);
-	  	gtk_text_buffer_insert(buf, &iter, "\n", -1);
-    }
+			if (g_str_has_prefix(line, AUTHOR_KEY))
+				gtk_label_set_text(self->priv->author, line+strlen(AUTHOR_KEY));
+			else if (g_str_has_prefix(line, COMMITTER_KEY))
+				gtk_label_set_text(self->priv->committer, line+strlen(COMMITTER_KEY));
+			/* We keep only empty lines and lines with whitespace at begining */
+			line = NULL;
+		}
+		if (line != NULL)
+		{
+			gtk_text_buffer_insert(buf, &iter, line, -1);
+			gtk_text_buffer_insert(buf, &iter, "\n", -1);
+		}
 	}
 }
 
@@ -480,7 +487,7 @@ gitg_revision_view_init(GitgRevisionView *self)
 {
 	self->priv = GITG_REVISION_VIEW_GET_PRIVATE(self);
 	
-  self->priv->log_runner = gitg_runner_new(2000);
+	self->priv->log_runner = gitg_runner_new(2000);
 	
 	g_signal_connect(self->priv->log_runner, "begin-loading", G_CALLBACK(on_log_begin_loading), self);
 	g_signal_connect(self->priv->log_runner, "update", G_CALLBACK(on_log_update), self);
@@ -601,13 +608,19 @@ update_log(GitgRevisionView *self, GitgRevision *revision)
 	
 	if (!revision)
 		return;
+	
+	gchar sign = gitg_revision_get_sign(revision);
+	if (sign != 't' && sign != 'u')
+	{
+		gchar *hash = gitg_revision_get_sha1(revision);
+		/* log_runner needs revision */
+		self->priv->revision = revision;
+		gitg_repository_run_commandv(self->priv->repository, self->priv->log_runner, NULL,
+									 "show", "--raw", "-M", "--pretty=full", 
+									 "--encoding=UTF-8", hash, NULL);
 
-	gchar *hash = gitg_revision_get_sha1(revision);
-	gitg_repository_run_commandv(self->priv->repository, self->priv->log_runner, NULL,
-								 "show", "--raw", "-M", "--pretty=full", 
-								 "--encoding=UTF-8", hash, NULL);
-
-	g_free(hash);
+		g_free(hash);
+	}
 }
 
 void

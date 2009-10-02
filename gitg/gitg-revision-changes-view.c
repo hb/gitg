@@ -499,15 +499,36 @@ static void
 on_diff_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionChangesView *self)
 {
 	GdkWindow *window = GTK_WIDGET(self->priv->diff)->window;
-	if (window != NULL) {
+	if (window != NULL)
+	{
 		gdk_window_set_cursor(window, NULL);
 	}
 	
-	if (!cancelled)
+	if (cancelled)
+		return;
+
+	if (!self->priv->revision)
+		return;
+
+	gchar sign = gitg_revision_get_sign(self->priv->revision);
+	
+	if (sign == 't' || sign == 'u')
+	{
+		gchar *head = gitg_repository_parse_head(self->priv->repository);
+		const gchar *cached = NULL;
+		
+		if (sign == 't')
+			cached == "--cached";
+
+		gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
+									"diff-index", "--raw", "-M", "--abbrev=40", head, cached, NULL);
+		g_free(head);
+	}
+	else
 	{
 		gchar *sha = gitg_revision_get_sha1(self->priv->revision);
 		gitg_repository_run_commandv(self->priv->repository, self->priv->diff_files_runner, NULL,
-									 "show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
+								 "show", "--raw", "-M", "--pretty=format:", "--abbrev=40", sha, NULL);
 		g_free(sha);
 	}
 }
@@ -602,12 +623,31 @@ update_diff(GitgRevisionChangesView *self, GitgRepository *repository)
 	if (!self->priv->revision)
 		return;
 
-	gchar *hash = gitg_revision_get_sha1(self->priv->revision);
-	gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
-								 "show", "-M", "--pretty=format:%s%n%n%b", 
-								 "--encoding=UTF-8", hash, NULL);
+	gchar sign = gitg_revision_get_sign(self->priv->revision);
+	
+	switch (sign)
+	{
+		case 't':
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										"diff", "--cached", "-M", "--pretty=format:%s%n%n%b",
+										"--encoding=UTF-8", NULL);
+		break;
+		case 'u':
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										"diff", "-M", "--pretty=format:%s%n%n%b",
+										"--encoding=UTF-8", NULL);
+		break;
+		default:
+		{
+			gchar *hash = gitg_revision_get_sha1(self->priv->revision);
+			gitg_repository_run_commandv(self->priv->repository, self->priv->diff_runner, NULL,
+										 "show", "-M", "--pretty=format:%s%n%n%b", 
+										 "--encoding=UTF-8", hash, NULL);
 
-	g_free(hash);
+			g_free(hash);
+		}
+		break;
+	}
 }
 
 static gchar *
@@ -727,12 +767,15 @@ foreach_selection_changed(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *i
 {
 	gboolean visible = data->numselected == 0 || gtk_tree_selection_path_is_selected(data->selection, path);
 	
-	DiffFile *f;
+	DiffFile *f = NULL;
 	gtk_tree_model_get(model, iter, 0, &f, -1);
 	
-	gitg_diff_iter_set_visible(&f->iter, visible);
-	diff_file_unref(f);
+	if (f->visible)
+	{
+		gitg_diff_iter_set_visible(&f->iter, visible);
+	}
 
+	diff_file_unref(f);
 	return FALSE;
 }
 
@@ -740,6 +783,6 @@ static void
 on_diff_files_selection_changed(GtkTreeSelection *selection, GitgRevisionChangesView *self)
 {
 	ForeachSelectionData data = {gtk_tree_selection_count_selected_rows(selection), selection};
-	gtk_tree_model_foreach(GTK_TREE_MODEL(self->priv->list_store_diff_files), (GtkTreeModelForeachFunc)foreach_selection_changed, &data);
+	gtk_tree_model_foreach(gtk_tree_view_get_model(self->priv->diff_files), (GtkTreeModelForeachFunc)foreach_selection_changed, &data);
 }
 
