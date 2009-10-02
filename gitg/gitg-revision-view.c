@@ -58,8 +58,8 @@ typedef struct
 struct _GitgRevisionViewPrivate
 {
 	GtkLabel *sha;
-	GtkLabel *author;
-	GtkLabel *committer;
+	GtkLinkButton *author;
+	GtkLinkButton *committer;
 	GtkLabel *date;
 	GtkTable *parents;
 	GtkTextView *log;
@@ -264,8 +264,8 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	GitgRevisionView *rvv = GITG_REVISION_VIEW(buildable);
 
 	rvv->priv->sha = GTK_LABEL(gtk_builder_get_object(builder, "label_sha"));
-	rvv->priv->author = GTK_LABEL(gtk_builder_get_object(builder, "label_author"));
-	rvv->priv->committer = GTK_LABEL(gtk_builder_get_object(builder, "label_committer"));
+	rvv->priv->author = GTK_LINK_BUTTON(gtk_builder_get_object(builder, "label_author"));
+	rvv->priv->committer = GTK_LINK_BUTTON(gtk_builder_get_object(builder, "label_committer"));
 	rvv->priv->date = GTK_LABEL(gtk_builder_get_object(builder, "label_date"));
 	rvv->priv->parents = GTK_TABLE(gtk_builder_get_object(builder, "table_parents"));
 	rvv->priv->log = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_log"));
@@ -447,6 +447,8 @@ on_log_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *sel
 static void
 on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 {
+	static GRegex *regex = NULL;
+	GMatchInfo    *match = NULL;
 	gchar *line;
 	GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
 	GtkTextIter iter;
@@ -463,6 +465,11 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 			"style", PANGO_STYLE_ITALIC,
 			NULL);
 	
+	if (G_UNLIKELY(!regex)) {
+		regex = g_regex_new("^\\s*([^<]+?)?\\s*(?:<([^>]+)>)?\\s*$",
+		                    G_REGEX_OPTIMIZE, 0, NULL);
+	}
+
 	gtk_text_buffer_get_end_iter(buf, &iter);
 	
 	while ((line = *buffer++))
@@ -483,9 +490,25 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 #define AUTHOR_KEY "Author: "
 #define COMMITTER_KEY "Commit: "
 			if (g_str_has_prefix(line, AUTHOR_KEY))
-				gtk_label_set_text(self->priv->author, line+strlen(AUTHOR_KEY));
+			{
+				if (g_regex_match(regex, line+strlen(AUTHOR_KEY), 0, &match))
+				{
+					gtk_button_set_label(GTK_BUTTON(self->priv->author), g_match_info_fetch(match, 1));
+					gchar *uri = g_strdup_printf("mailto:%s", g_match_info_fetch(match, 2));
+					gtk_link_button_set_uri(self->priv->author, uri);
+					g_free(uri);
+				}
+			}
 			else if (g_str_has_prefix(line, COMMITTER_KEY))
-				gtk_label_set_text(self->priv->committer, line+strlen(COMMITTER_KEY));
+			{
+				if (g_regex_match(regex, line+strlen(COMMITTER_KEY), 0, &match))
+				{
+					gtk_button_set_label(GTK_BUTTON(self->priv->committer), g_match_info_fetch(match, 1));
+					gchar *uri = g_strdup_printf("mailto:%s", g_match_info_fetch(match, 2));
+					gtk_link_button_set_uri(self->priv->committer, uri);
+					g_free(uri);
+				}
+			}
 			line = NULL;
 		}
 		if (line != NULL)
@@ -680,8 +703,10 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 	}
 	else
 	{
-		gtk_label_set_text(self->priv->author, "");
-		gtk_label_set_text(self->priv->committer, "");
+		gtk_button_set_label(GTK_BUTTON(self->priv->author), "");
+		gtk_link_button_set_uri(self->priv->author, "");
+		gtk_button_set_label(GTK_BUTTON(self->priv->committer), "");
+		gtk_link_button_set_uri(self->priv->committer, "");
 		gtk_text_buffer_set_text(tb, "", -1);
 		gtk_label_set_text(self->priv->date, "");
 		gtk_label_set_text(self->priv->sha, "");
