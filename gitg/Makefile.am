@@ -15,15 +15,18 @@ BUILT_SOURCES = 				\
 	gitg-enum-types.h
 
 NOINST_H_FILES = 			\
+	gitg-branch-actions.h		\
 	gitg-cell-renderer-path.h	\
 	gitg-changed-file.h		\
 	gitg-color.h			\
+	gitg-config.h			\
 	gitg-commit.h			\
 	gitg-commit-view.h		\
 	gitg-data-binding.h		\
 	gitg-debug.h			\
 	gitg-diff-view.h		\
 	gitg-dirs.h			\
+	gitg-dnd.h			\
 	gitg-label-renderer.h		\
 	gitg-lane.h			\
 	gitg-lanes.h			\
@@ -31,6 +34,7 @@ NOINST_H_FILES = 			\
 	gitg-preferences.h		\
 	gitg-ref.h			\
 	gitg-repository.h		\
+	gitg-repository-dialog.h	\
 	gitg-revision.h			\
 	gitg-revision-tree-store.h	\
 	gitg-revision-tree-view.h	\
@@ -38,6 +42,7 @@ NOINST_H_FILES = 			\
 	gitg-revision-changes-view.h		\
 	gitg-runner.h			\
 	gitg-settings.h			\
+	gitg-spinner.h			\
 	gitg-types.h			\
 	gitg-utils.h			\
 	gitg-window.h			\
@@ -46,15 +51,18 @@ NOINST_H_FILES = 			\
 gitg_SOURCES = 				\
 	$(BUILT_SOURCES)		\
 	gitg.c				\
+	gitg-branch-actions.c		\
 	gitg-cell-renderer-path.c	\
 	gitg-changed-file.c		\
 	gitg-color.c			\
+	gitg-config.c			\
 	gitg-commit.c			\
 	gitg-commit-view.c		\
 	gitg-data-binding.c		\
 	gitg-debug.c			\
 	gitg-diff-view.c		\
 	gitg-dirs.c			\
+	gitg-dnd.c			\
 	gitg-label-renderer.c		\
 	gitg-lane.c			\
 	gitg-lanes.c			\
@@ -62,6 +70,7 @@ gitg_SOURCES = 				\
 	gitg-preferences-dialog.c	\
 	gitg-ref.c			\
 	gitg-repository.c		\
+	gitg-repository-dialog.c	\
 	gitg-revision.c			\
 	gitg-revision-tree-store.c	\
 	gitg-revision-tree-view.c	\
@@ -69,6 +78,7 @@ gitg_SOURCES = 				\
 	gitg-revision-changes-view.c		\
 	gitg-runner.c			\
 	gitg-settings.c			\
+	gitg-spinner.c			\
 	gitg-utils.c			\
 	gitg-window.c			\
 	sexy-icon-entry.c		\
@@ -82,9 +92,13 @@ gitg_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex "^[[^_]].*"
 
 uidir = $(datadir)/gitg/ui/
 ui_DATA = \
+	gitg-window.ui			\
+	gitg-commit-menu.ui		\
 	gitg-ui.xml 			\
 	gitg-menus.xml			\
-	gitg-preferences.xml
+	gitg-preferences.ui		\
+	gitg-tag.ui			\
+	gitg-repository.ui
 
 gitg-enum-types.h: gitg-enum-types.h.template $(ENUM_H_FILES) $(GLIB_MKENUMS)
 	(cd $(srcdir) && $(GLIB_MKENUMS) --template gitg-enum-types.h.template $(ENUM_H_FILES)) > $@
