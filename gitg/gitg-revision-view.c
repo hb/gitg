@@ -450,6 +450,13 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 	gchar *line;
 	GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
 	GtkTextIter iter;
+	gboolean first_line = TRUE;
+	static GtkTextTag *tag = NULL;
+	
+	if (!tag)
+		tag = gtk_text_buffer_create_tag(buf, "first_line",
+		                                 "weight", PANGO_WEIGHT_BOLD,
+		                                 NULL);
 	
 	gtk_text_buffer_get_end_iter(buf, &iter);
 	
@@ -474,13 +481,18 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 				gtk_label_set_text(self->priv->author, line+strlen(AUTHOR_KEY));
 			else if (g_str_has_prefix(line, COMMITTER_KEY))
 				gtk_label_set_text(self->priv->committer, line+strlen(COMMITTER_KEY));
-			/* We keep only empty lines and lines with whitespace at begining */
 			line = NULL;
 		}
 		if (line != NULL)
 		{
-			gtk_text_buffer_insert(buf, &iter, line, -1);
+			/* We keep only empty lines and lines with whitespace at begining */
+			/* This line is part of the log message */
+			if (first_line)
+				gtk_text_buffer_insert_with_tags(buf, &iter, line, -1, tag, NULL);
+			else
+				gtk_text_buffer_insert(buf, &iter, line, -1);
 			gtk_text_buffer_insert(buf, &iter, "\n", -1);
+			first_line = FALSE;
 		}
 	}
 }
