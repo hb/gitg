@@ -451,12 +451,17 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 	GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(self->priv->log));
 	GtkTextIter iter;
 	gboolean first_line = TRUE;
-	static GtkTextTag *tag = NULL;
+	static GtkTextTag *tag_title = NULL;
+	static GtkTextTag *tag_signed = NULL;
 	
-	if (!tag)
-		tag = gtk_text_buffer_create_tag(buf, "first_line",
-		                                 "weight", PANGO_WEIGHT_BOLD,
-		                                 NULL);
+	if (!tag_title)
+		tag_title = gtk_text_buffer_create_tag(buf, "title",
+			"weight", PANGO_WEIGHT_BOLD,
+		    NULL);
+	if (!tag_signed)
+		tag_signed = gtk_text_buffer_create_tag(buf, "signed",
+			"style", PANGO_STYLE_ITALIC,
+			NULL);
 	
 	gtk_text_buffer_get_end_iter(buf, &iter);
 	
@@ -485,10 +490,13 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 		}
 		if (line != NULL)
 		{
+#define SIGNED_OFF_BY_KEY "Signed-off-by: "
 			/* We keep only empty lines and lines with whitespace at begining */
 			/* This line is part of the log message */
 			if (first_line)
-				gtk_text_buffer_insert_with_tags(buf, &iter, line, -1, tag, NULL);
+				gtk_text_buffer_insert_with_tags(buf, &iter, line, -1, tag_title, NULL);
+			else if (g_str_has_prefix(line, SIGNED_OFF_BY_KEY))
+				gtk_text_buffer_insert_with_tags(buf, &iter, line, -1, tag_signed, NULL);
 			else
 				gtk_text_buffer_insert(buf, &iter, line, -1);
 			gtk_text_buffer_insert(buf, &iter, "\n", -1);
