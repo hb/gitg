@@ -444,6 +444,19 @@ on_log_end_loading(GitgRunner *runner, gboolean cancelled, GitgRevisionView *sel
 	}
 }
 
+static gboolean
+on_email_clicked(GtkTextTag  *tag,
+                                                        GObject     *object,
+                                                        GdkEvent    *event,
+                                                        GtkTextIter *iter,
+                                                        gpointer     user_data)
+{
+#if GTK_CHECK_VERSION (2, 14, 0)
+	if (event->type == GDK_BUTTON_RELEASE)
+		gtk_show_uri(NULL, (gchar*)user_data, GDK_CURRENT_TIME, NULL);
+#endif
+}
+
 static void
 on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 {
@@ -455,6 +468,7 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 	gboolean first_line = TRUE;
 	static GtkTextTag *tag_title = NULL;
 	static GtkTextTag *tag_signed = NULL;
+	static GtkTextTag *tag_email = NULL;
 	
 	if (!tag_title)
 		tag_title = gtk_text_buffer_create_tag(buf, "title",
@@ -463,6 +477,11 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 	if (!tag_signed)
 		tag_signed = gtk_text_buffer_create_tag(buf, "signed",
 			"style", PANGO_STYLE_ITALIC,
+			NULL);
+	if (!tag_email)
+		tag_email = gtk_text_buffer_create_tag(buf, "email",
+			"foreground", "blue",
+			"underline", PANGO_UNDERLINE_SINGLE,
 			NULL);
 	
 	if (G_UNLIKELY(!regex)) {
@@ -519,7 +538,16 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 			if (first_line)
 				gtk_text_buffer_insert_with_tags(buf, &iter, line, -1, tag_title, NULL);
 			else if (g_str_has_prefix(line, SIGNED_OFF_BY_KEY))
-				gtk_text_buffer_insert_with_tags(buf, &iter, line, -1, tag_signed, NULL);
+			{
+				if (g_regex_match(regex, line+strlen(SIGNED_OFF_BY_KEY), 0, &match))
+				{
+					gtk_text_buffer_insert_with_tags(buf, &iter, SIGNED_OFF_BY_KEY, -1, tag_signed, NULL);
+					gtk_text_buffer_insert_with_tags(buf, &iter, line+strlen(SIGNED_OFF_BY_KEY), -1, tag_email, NULL);
+					gchar *uri = g_strdup_printf("mailto:%s", g_match_info_fetch(match, 2));
+					g_signal_connect_data(tag_email, "event", G_CALLBACK(on_email_clicked), uri, (GClosureNotify*)g_free, 0);
+					uri = NULL;
+				}
+			}
 			else
 				gtk_text_buffer_insert(buf, &iter, line, -1);
 			gtk_text_buffer_insert(buf, &iter, "\n", -1);
