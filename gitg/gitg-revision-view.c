@@ -276,8 +276,6 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 		"label_author_lbl",
 		"label_committer_lbl",
 		"label_sha_lbl",
-		"label_author_date_lbl",
-		"label_committer_date_lbl",
 		"label_parent_lbl"
 	};
 	
