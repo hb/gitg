@@ -60,7 +60,8 @@ struct _GitgRevisionViewPrivate
 	GtkLabel *sha;
 	GtkLinkButton *author;
 	GtkLinkButton *committer;
-	GtkLabel *date;
+	GtkLabel *author_date;
+	GtkLabel *committer_date;
 	GtkTable *parents;
 	GtkTextView *log;
   
@@ -266,7 +267,8 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 	rvv->priv->sha = GTK_LABEL(gtk_builder_get_object(builder, "label_sha"));
 	rvv->priv->author = GTK_LINK_BUTTON(gtk_builder_get_object(builder, "label_author"));
 	rvv->priv->committer = GTK_LINK_BUTTON(gtk_builder_get_object(builder, "label_committer"));
-	rvv->priv->date = GTK_LABEL(gtk_builder_get_object(builder, "label_date"));
+	rvv->priv->author_date = GTK_LABEL(gtk_builder_get_object(builder, "label_author_date"));
+	rvv->priv->committer_date = GTK_LABEL(gtk_builder_get_object(builder, "label_committer_date"));
 	rvv->priv->parents = GTK_TABLE(gtk_builder_get_object(builder, "table_parents"));
 	rvv->priv->log = GTK_TEXT_VIEW(gtk_builder_get_object(builder, "text_view_log"));
 	
@@ -274,7 +276,8 @@ gitg_revision_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 		"label_author_lbl",
 		"label_committer_lbl",
 		"label_sha_lbl",
-		"label_date_lbl",
+		"label_author_date_lbl",
+		"label_committer_date_lbl",
 		"label_parent_lbl"
 	};
 	
@@ -507,7 +510,9 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 		else
 		{
 #define AUTHOR_KEY "Author: "
+#define AUTHOR_DATE_KEY "AuthorDate: "
 #define COMMITTER_KEY "Commit: "
+#define COMMITTER_DATE_KEY "CommitDate: "
 			if (g_str_has_prefix(line, AUTHOR_KEY))
 			{
 				if (g_regex_match(regex, line+strlen(AUTHOR_KEY), 0, &match))
@@ -527,6 +532,14 @@ on_log_update(GitgRunner *runner, gchar **buffer, GitgRevisionView *self)
 					gtk_link_button_set_uri(self->priv->committer, uri);
 					g_free(uri);
 				}
+			}
+			else if (g_str_has_prefix(line, AUTHOR_DATE_KEY))
+			{
+				gtk_label_set_text(GTK_LABEL(self->priv->author_date), line+strlen(AUTHOR_DATE_KEY));
+			}
+			else if (g_str_has_prefix(line, COMMITTER_DATE_KEY))
+			{
+				gtk_label_set_text(GTK_LABEL(self->priv->committer_date), line+strlen(COMMITTER_DATE_KEY));
 			}
 			line = NULL;
 		}
@@ -690,7 +703,7 @@ update_log(GitgRevisionView *self, GitgRevision *revision)
 		/* log_runner needs revision */
 		self->priv->revision = revision;
 		gitg_repository_run_commandv(self->priv->repository, self->priv->log_runner, NULL,
-									 "show", "--raw", "-M", "--pretty=full", 
+									 "show", "--raw", "-M", "--pretty=fuller", "--date=local",
 									 "--encoding=UTF-8", hash, NULL);
 
 		g_free(hash);
@@ -717,10 +730,6 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 		gtk_text_buffer_set_text(tb, s, -1);
 		g_free(s);
 
-		gchar *date = gitg_utils_timestamp_to_str(gitg_revision_get_timestamp(revision));
-		gtk_label_set_text(self->priv->date, date);
-		g_free(date);
-	
 		gchar *sha = gitg_revision_get_sha1(revision);
 		gtk_label_set_text(self->priv->sha, sha);
 
@@ -736,7 +745,8 @@ gitg_revision_view_update(GitgRevisionView *self, GitgRepository *repository, Gi
 		gtk_button_set_label(GTK_BUTTON(self->priv->committer), "");
 		gtk_link_button_set_uri(self->priv->committer, "");
 		gtk_text_buffer_set_text(tb, "", -1);
-		gtk_label_set_text(self->priv->date, "");
+		gtk_label_set_text(self->priv->committer_date, "");
+		gtk_label_set_text(self->priv->author_date, "");
 		gtk_label_set_text(self->priv->sha, "");
 	}
 	
