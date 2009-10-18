@@ -59,6 +59,8 @@ struct _GitgRevisionTreeViewPrivate
 	GtkTreePath *load_path;
 
 	gboolean skipped_blank_line;
+	
+	gboolean dirty;
 };
 
 static void gitg_revision_tree_view_buildable_iface_init(GtkBuildableIface *iface);
@@ -371,6 +373,28 @@ on_drag_end(GtkWidget *widget, GdkDragContext *context, GitgRevisionTreeView *tr
 }
 
 static void
+check_for_update(GitgRevisionTreeView *self)
+{
+	g_return_if_fail(GITG_IS_REVISION_TREE_VIEW(self));
+
+	if (self->priv->dirty && GTK_WIDGET_MAPPED(self->priv->tree_view))
+	{
+		// Update
+		gitg_revision_tree_view_reload(self);
+
+		// Reset to avoid excessive update
+		self->priv->dirty = FALSE;
+	}
+}
+
+static void
+on_mapped(GtkWidget *widget,
+		  gpointer   user_data)
+{
+	check_for_update(GITG_REVISION_TREE_VIEW(user_data));
+}
+
+static void
 gitg_revision_tree_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 {
 	if (parent_iface.parser_finished)
@@ -404,6 +428,8 @@ gitg_revision_tree_view_parser_finished(GtkBuildable *buildable, GtkBuilder *bui
 	g_signal_connect(tree_view->priv->tree_view, "drag-data-get", G_CALLBACK(on_drag_data_get), tree_view);
 	g_signal_connect(tree_view->priv->tree_view, "drag-end", G_CALLBACK(on_drag_end), tree_view);
 	g_signal_connect(selection, "changed", G_CALLBACK(on_selection_changed), tree_view);
+	
+	g_signal_connect(tree_view->priv->tree_view, "map", G_CALLBACK(on_mapped), tree_view);
 }
 
 static void
@@ -661,6 +687,8 @@ gitg_revision_tree_view_init(GitgRevisionTreeView *self)
 	
 	self->priv->content_runner = gitg_runner_new(5000);
 	g_signal_connect(self->priv->content_runner, "update", G_CALLBACK(on_contents_update), self);
+	
+	self->priv->dirty = FALSE;
 }
 
 static gchar *
@@ -710,8 +738,10 @@ gitg_revision_tree_view_update(GitgRevisionTreeView *tree, GitgRepository *repos
 {
 	g_return_if_fail(GITG_IS_REVISION_TREE_VIEW(tree));
 	
+	tree->priv->dirty = TRUE;
 	g_object_set(G_OBJECT(tree), "repository", repository, "revision", revision, NULL);
-	gitg_revision_tree_view_reload(tree);
+	
+	check_for_update(tree);
 }
 
 void

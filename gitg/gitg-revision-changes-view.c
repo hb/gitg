@@ -66,11 +66,14 @@ struct _GitgRevisionChangesViewPrivate
 	GitgRepository *repository;
 	GitgRevision *revision;
 	GSList *cached_headers;
+	
+	gboolean dirty;
 };
 
 static void gitg_revision_changes_view_buildable_iface_init(GtkBuildableIface *iface);
 static void on_header_added(GitgDiffView *view, GitgDiffIter *iter, GitgRevisionChangesView *self);
 static void on_diff_files_selection_changed(GtkTreeSelection *selection, GitgRevisionChangesView *self);
+static void update_diff(GitgRevisionChangesView *self, GitgRepository *repository);
 
 G_DEFINE_TYPE_EXTENDED(GitgRevisionChangesView, gitg_revision_changes_view, GTK_TYPE_VBOX, 0,
 	G_IMPLEMENT_INTERFACE(GTK_TYPE_BUILDABLE, gitg_revision_changes_view_buildable_iface_init));
@@ -241,6 +244,28 @@ on_diff_files_button_press(GtkTreeView *treeview, GdkEventButton *event, GitgRev
 }
 
 static void
+check_for_update(GitgRevisionChangesView *self)
+{
+	g_return_if_fail(GITG_IS_REVISION_CHANGES_VIEW(self));
+
+	if (self->priv->dirty && GTK_WIDGET_MAPPED(self->priv->diff))
+	{
+		// Update 
+		update_diff(self, self->priv->repository);
+
+		// Reset to avoid excessive update
+		self->priv->dirty = FALSE;
+	}
+}
+
+static void
+on_mapped(GtkWidget *widget,
+		  gpointer   user_data)
+{
+	check_for_update(GITG_REVISION_CHANGES_VIEW(user_data));
+}
+
+static void
 gitg_revision_changes_view_parser_finished(GtkBuildable *buildable, GtkBuilder *builder)
 {
 	if (parent_iface.parser_finished)
@@ -289,6 +314,8 @@ gitg_revision_changes_view_parser_finished(GtkBuildable *buildable, GtkBuilder *
 	gtk_text_view_set_buffer(GTK_TEXT_VIEW(rvv->priv->diff), GTK_TEXT_BUFFER(buffer));
 	
 	g_signal_connect(rvv->priv->diff, "header-added", G_CALLBACK(on_header_added), rvv);
+
+	g_signal_connect(rvv->priv->diff, "map", G_CALLBACK(on_mapped), rvv);
 }
 
 static void
@@ -577,6 +604,8 @@ gitg_revision_changes_view_init(GitgRevisionChangesView *self)
 	g_signal_connect(self->priv->diff_files_runner, "begin-loading", G_CALLBACK(on_diff_files_begin_loading), self);
 	g_signal_connect(self->priv->diff_files_runner, "update", G_CALLBACK(on_diff_files_update), self);
 	g_signal_connect(self->priv->diff_files_runner, "end-loading", G_CALLBACK(on_diff_files_end_loading), self);
+	
+	self->priv->dirty = FALSE;
 }
 
 #define HASH_KEY "GitgRevisionChangesViewHashKey"
@@ -696,7 +725,10 @@ gitg_revision_changes_view_update(GitgRevisionChangesView *self, GitgRepository 
 	
 	// Update diff
 	self->priv->revision = revision;
-	update_diff(self, repository);
+	self->priv->dirty = TRUE;
+	g_object_set(G_OBJECT(self), "repository", repository, NULL);
+	
+	check_for_update(self);
 }
 
 void 
