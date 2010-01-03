@@ -557,6 +557,43 @@ on_refs_dnd (GitgRef *source, GitgRef *dest, gboolean dropped, GitgWindow *windo
 }
 
 static void
+on_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData *selection, guint info, guint time, GitgWindow *window)
+{
+	GtkTreeSelection *tree_selection;
+	gchar *data;
+	GList *selection_list, *walk;
+	GtkTreeModel *model;
+	GSList *revision_list, *swalk;
+
+	tree_selection = gtk_tree_view_get_selection(window->priv->tree_view);
+	selection_list = gtk_tree_selection_get_selected_rows(tree_selection, &model);
+	revision_list = NULL;
+	for(walk = selection_list; walk; walk = walk->next) {
+		GtkTreePath *path;
+		GtkTreeIter iter;
+		path = walk->data;
+		if(gtk_tree_model_get_iter(model, &iter, path)) {
+			GitgRevision *revision = NULL;
+			gtk_tree_model_get(model, &iter, 0, &revision, -1);
+			if(revision) {
+				revision_list = g_slist_prepend(revision_list, gitg_revision_get_sha1(revision));
+			}
+		}
+	}
+	g_list_foreach(selection_list, (GFunc)gtk_tree_path_free, NULL);
+	g_list_free(selection_list);
+
+	data = g_strdup(gitg_repository_get_path(window->priv->repository));
+	for(swalk = revision_list; swalk; swalk = swalk->next)
+		data = g_strconcat(data, "\n", swalk->data, NULL);
+	g_slist_foreach(revision_list, (GFunc)g_free, NULL);
+	g_slist_free(revision_list);
+
+	gtk_selection_data_set(selection, selection->target, 8, data, strlen(data));
+	g_free(data);
+}
+
+static void
 init_tree_view (GitgWindow *window, GtkBuilder *builder)
 {
 	GtkTreeViewColumn *col = GTK_TREE_VIEW_COLUMN(gtk_builder_get_object(builder, "rv_column_subject"));
@@ -566,6 +603,14 @@ init_tree_view (GitgWindow *window, GtkBuilder *builder)
 	gtk_tree_view_column_set_cell_data_func(col, GTK_CELL_RENDERER(window->priv->renderer_path), (GtkTreeCellDataFunc)on_renderer_path, window, NULL);
 	
 	gitg_dnd_enable (window->priv->tree_view, (GitgDndCallback)on_refs_dnd, window);
+
+	/* commit-list dnd */
+	GtkTargetEntry targets[] = {
+			{"git/commit-list", GTK_TARGET_OTHER_APP, 0}
+	};
+
+	gtk_drag_source_set(GTK_WIDGET(window->priv->tree_view), GDK_BUTTON1_MASK, targets, 1, GDK_ACTION_COPY);
+	g_signal_connect(G_OBJECT(window->priv->tree_view), "drag-data-get", G_CALLBACK(on_drag_data_get), window);
 }
 
 static void
