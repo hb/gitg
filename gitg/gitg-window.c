@@ -606,7 +606,7 @@ init_tree_view (GitgWindow *window, GtkBuilder *builder)
 
 	/* commit-list dnd */
 	GtkTargetEntry targets[] = {
-			{"git/commit-list", GTK_TARGET_OTHER_APP, 0}
+			{"git/treeish-list", GTK_TARGET_OTHER_APP, 0}
 	};
 
 	gtk_drag_source_set(GTK_WIDGET(window->priv->tree_view), GDK_BUTTON1_MASK, targets, 1, GDK_ACTION_COPY);
