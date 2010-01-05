@@ -95,6 +95,8 @@ struct _GitgWindowPrivate
 	GitgRef *popup_refs[2];
 	
 	GList *branch_actions;
+
+	gchar *loaded_select_sha1;
 };
 
 static gboolean on_tree_view_motion(GtkTreeView *treeview, GdkEventMotion *event, GitgWindow *window);
@@ -1117,6 +1119,20 @@ add_recent_item(GitgWindow *window)
 }
 
 static void
+on_repository_loaded(GitgRepository *repository, GitgWindow *window)
+{
+	if(window->priv->loaded_select_sha1) {
+		gchar *hash;
+
+		hash = gitg_utils_sha1_to_hash_new(window->priv->loaded_select_sha1);
+		g_free(window->priv->loaded_select_sha1);
+		window->priv->loaded_select_sha1 = NULL;
+		goto_hash(window, hash);
+		g_free(hash);
+	}
+}
+
+static void
 load_repository(GitgWindow *window, gchar const *path, gint argc, gchar const **argv, gboolean usewd)
 {
 	if (window->priv->repository)
@@ -1134,6 +1150,7 @@ load_repository(GitgWindow *window, gchar const *path, gint argc, gchar const **
 	
 	if (window->priv->repository && gitg_repository_get_path(window->priv->repository))
 	{
+		g_signal_connect(window->priv->repository, "loaded", G_CALLBACK(on_repository_loaded), window);
 		gtk_tree_view_set_model(window->priv->tree_view, GTK_TREE_MODEL(window->priv->repository));
 		GitgRunner *loader = gitg_repository_get_loader(window->priv->repository);
 	
@@ -1189,10 +1206,12 @@ load_repository(GitgWindow *window, gchar const *path, gint argc, gchar const **
 }
 
 void
-gitg_window_load_repository(GitgWindow *window, gchar const *path, gint argc, gchar const **argv)
+gitg_window_load_repository(GitgWindow *window, gchar const *path, gint argc, gchar const **argv, const gchar *loaded_select_sha1)
 {
 	g_return_if_fail(GITG_IS_WINDOW(window));
-	
+
+	window->priv->loaded_select_sha1 = g_strdup(loaded_select_sha1);
+
 	load_repository(window, path, argc, argv, TRUE);
 }
 

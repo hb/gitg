@@ -37,6 +37,7 @@
 #include "gitg-utils.h"
 
 static gboolean commit_mode = FALSE;
+static gchar *loaded_select_sha1 = NULL;
 
 static void
 show_version_and_quit (void)
@@ -51,6 +52,7 @@ static GOptionEntry entries[] =
 	{ "version", 'V', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
 	  show_version_and_quit, N_("Show the application's version"), NULL },
 	{ "commit", 'c', 0, G_OPTION_ARG_NONE, &commit_mode, N_("Start gitg in commit mode") }, 
+	{ "select", 's', 0, G_OPTION_ARG_STRING, &loaded_select_sha1, N_("Select the commit with the given SHA1 after loading") },
 	{ NULL }
 };
 
@@ -189,7 +191,7 @@ main(int argc, char **argv)
 	GitgSettings *settings = gitg_settings_get_default();
 		
 	GitgWindow *window = build_ui();
-	gitg_window_load_repository(window, argc > 1 ? argv[1] : NULL, argc - 2, (gchar const **)&argv[2]);
+	gitg_window_load_repository(window, argc > 1 ? argv[1] : NULL, argc - 2, (gchar const **)&argv[2], loaded_select_sha1);
 	
 	if (commit_mode)
 		gitg_window_show_commit(window);
