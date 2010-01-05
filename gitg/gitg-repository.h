@@ -60,6 +60,7 @@ struct _GitgRepositoryClass
 	GObjectClass parent_class;
 	
 	void (*load) (GitgRepository *);
+	void (*loaded) (GitgRepository *);
 };
 
 GType gitg_repository_get_type (void) G_GNUC_CONST;

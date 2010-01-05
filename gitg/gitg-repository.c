@@ -55,6 +55,7 @@ enum
 enum
 {
 	LOAD,
+	LOADED,
 	LAST_SIGNAL
 };
 
@@ -559,6 +560,16 @@ gitg_repository_class_init(GitgRepositoryClass *klass)
 			      G_TYPE_NONE,
 			      0);
 
+	repository_signals[LOADED] =
+		g_signal_new ("loaded",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (GitgRepositoryClass, loaded),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__VOID,
+			      G_TYPE_NONE,
+			      0);
+
 	g_type_class_add_private(object_class, sizeof(GitgRepositoryPrivate));
 }
 
@@ -651,6 +662,10 @@ on_loader_end_loading(GitgRunner *object, gboolean cancelled, GitgRepository *re
 		break;
 		default:
 		break;
+	}
+
+	if(repository->priv->load_stage == LOAD_STAGE_LAST) {
+		g_signal_emit(repository, repository_signals[LOADED], 0);
 	}
 }
 
